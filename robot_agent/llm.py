@@ -59,6 +59,17 @@ class MockChatModel(BaseChatModel):
         object.__setattr__(self, "idx", self.idx + 1)
         return ChatResult(generations=[ChatGeneration(message=msg)])
 
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        # 机器人闭环是 async-only（async 工具 + ainvoke）。显式提供原生异步实现，
+        # 避免回退到 BaseChatModel 默认的「线程池跑 _generate」路径（事件循环关闭时可能挂起）。
+        return self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
     @property
     def _llm_type(self) -> str:
         return "mock-chat"

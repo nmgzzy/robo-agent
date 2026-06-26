@@ -226,5 +226,25 @@ async def test_remember_fact_writeback_and_recall():
 
     tool_msgs = [m for m in out["messages"] if m.type == "tool"]
     assert "已记住" in tool_msgs[0].content
+    # recall 应还原为事实本身，而非泄露存储包装 {'value': ...}。
     assert "(3,2)" in tool_msgs[1].content
+    assert "'value'" not in tool_msgs[1].content
     assert out["messages"][-1].content == "充电桩在 (3,2)"
+
+
+async def test_memory_tools_hidden_without_store():
+    """未配置 store 时不挂记忆工具：模型若误调用，ToolNode 优雅报错而非崩溃。"""
+    model = make_model(
+        responses=[
+            _tool_call("remember_fact", {"key": "x", "value": "y"}, "h1"),
+            AIMessage(content="算了"),
+        ]
+    )
+    agent = build_robot_agent(model=model)  # store=None
+    out = await agent.ainvoke({"messages": [HumanMessage("记一下")]})
+
+    tool_msgs = [m for m in out["messages"] if m.type == "tool"]
+    assert tool_msgs and "remember_fact" in tool_msgs[0].content
+    # 不是真的执行了写入，而是「无此工具」的错误回执。
+    assert "valid tool" in tool_msgs[0].content or "not a valid" in tool_msgs[0].content
+    assert out["messages"][-1].content == "算了"

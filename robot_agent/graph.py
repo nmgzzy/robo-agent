@@ -56,7 +56,11 @@ def build_robot_agent(
     if effectors is None:
         effectors = build_effectors("mock")
 
-    tools = [*build_robot_tools(effectors), *build_memory_tools(robot_id)]
+    tools = list(build_robot_tools(effectors))
+    # 记忆回写/读取工具依赖 InjectedStore：仅在配置了 store 时才挂载，
+    # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
+    if store is not None:
+        tools += build_memory_tools(robot_id)
     pre_model_hook = make_inject_memory(robot_id, kinds=recall_kinds)
 
     return create_react_agent(

@@ -40,12 +40,22 @@ def ns(robot_id: str, kind: str) -> tuple[str, str]:
     return (robot_id, kind)
 
 
+def _unwrap_value(value: Any) -> Any:
+    """还原 `remember_fact` 的 `{"value": ...}` 包装为原值；其它形状的记录原样返回。
+
+    兼容外部直接写入的任意 dict（如 `{"x": 0, "y": 0}`），不误拆。
+    """
+    if isinstance(value, dict) and set(value) == {"value"}:
+        return value["value"]
+    return value
+
+
 def _format_memory(items_by_kind: Mapping[str, Sequence[Any]]) -> str | None:
     """把检索到的记忆条目格式化为注入用的文本块；无记忆则返回 None。"""
     lines: list[str] = []
     for kind, items in items_by_kind.items():
         for it in items:
-            lines.append(f"- [{kind}] {it.key}: {it.value}")
+            lines.append(f"- [{kind}] {it.key}: {_unwrap_value(it.value)}")
     if not lines:
         return None
     return "已知的长期记忆（供决策参考，可能不完整）：\n" + "\n".join(lines)
@@ -131,6 +141,6 @@ def build_memory_tools(robot_id: str) -> list[Any]:
     ) -> str:
         """按 key 从长期记忆读取一条（kind 默认 facts）。"""
         item = await store.aget(ns(robot_id, kind), key)
-        return str(item.value) if item is not None else "none"
+        return str(_unwrap_value(item.value)) if item is not None else "none"
 
     return [remember_fact, recall]
