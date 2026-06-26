@@ -69,19 +69,59 @@ def test_make_model_unknown_profile_raises():
         make_model("nonexistent-profile")
 
 
-def test_make_model_real_profile_lazy_imports_anthropic():
-    """真实档位需要 langchain-anthropic；未安装时给出可操作的 ImportError，
+def test_make_model_real_profile_helpful_error_when_client_missing(monkeypatch):
+    """真实档位且未装 langchain-anthropic 时，给出可操作的 ImportError。
 
-    且不影响 robot_agent 本身的 import（依赖惰性）。
+    通过隐藏该模块来**确定性**复现「未安装」，不依赖真实环境是否装了客户端，
+    也保证 robot_agent 自身 import 不受影响（依赖惰性）。
     """
+    import builtins
+
     from robot_agent import make_model
 
-    # 显式区分「已装 / 未装」两种合法结果，二者都不应让 robot_agent 自身 import 失败。
-    try:
-        import langchain_anthropic  # noqa: F401
-    except ImportError:
-        with pytest.raises(ImportError, match="langchain-anthropic"):
-            make_model("smart")
-    else:
-        model = make_model("smart")
-        assert isinstance(model, BaseChatModel)
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "langchain_anthropic" or name.startswith("langchain_anthropic."):
+            raise ImportError("simulated missing langchain-anthropic")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(ImportError, match="langchain-anthropic"):
+        make_model("smart")
+
+
+def test_make_model_real_profile_builds_client_when_present(monkeypatch):
+    """真实档位可用时，按档位映射的模型 id 构建客户端并透传 overrides。
+
+    注入一个假的 ChatAnthropic（不触真实凭证 / 网络），避免在装了客户端但无
+    ANTHROPIC_API_KEY 的环境里破坏「离线可测」承诺。
+    """
+    import sys
+    import types
+
+    from robot_agent import make_model
+    from robot_agent.llm import PROFILE_MODELS
+
+    captured: dict = {}
+
+    class _FakeChatAnthropic(BaseChatModel):
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            super().__init__()
+
+        def _generate(self, *a, **k):  # pragma: no cover - 不会被调用
+            raise NotImplementedError
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake-anthropic"
+
+    fake_mod = types.ModuleType("langchain_anthropic")
+    fake_mod.ChatAnthropic = _FakeChatAnthropic
+    monkeypatch.setitem(sys.modules, "langchain_anthropic", fake_mod)
+
+    model = make_model("fast", api_key="dummy")
+    assert isinstance(model, _FakeChatAnthropic)
+    assert captured["model"] == PROFILE_MODELS["fast"]
+    assert captured["api_key"] == "dummy"
