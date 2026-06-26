@@ -13,9 +13,9 @@
     ├── llm.py        # P0：LLM 工厂 make_model(profile)（含 Mock）
     ├── state.py      # P1：State schema（messages + 只读世界状态）
     ├── hal/          # P1：SensorSource / Actuator 接口 + Mock 实现
-    ├── tools/        # P1：机器人控制工具（Actuator → @tool）
-    ├── memory/       # P1：记忆 hook（注入/裁剪/回写）+ namespace 约定
-    └── graph.py      # P1：装配 create_react_agent / StateGraph
+    ├── tools.py      # P1：机器人控制工具（Actuator → @tool）
+    ├── memory.py     # P1：记忆 hook（注入/裁剪/回写）+ namespace 约定
+    └── graph.py      # P1：装配 create_react_agent（build_robot_agent）
 
 **依赖纪律**（对齐 `docs/SLIMMING_NOTES.md`）：硬件 SDK / ROS / OpenCV / 控制算法
 只允许出现在 `hal/plugins/<impl>` 实现包内，不进核心四库依赖树；远程 LLM 客户端
@@ -24,6 +24,16 @@
 
 from __future__ import annotations
 
+from robot_agent.graph import build_robot_agent
+from robot_agent.hal import build_effectors
 from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
+from robot_agent.state import RobotState
 
-__all__ = ["DEFAULT_PROFILE", "MockChatModel", "make_model"]
+__all__ = [
+    "DEFAULT_PROFILE",
+    "MockChatModel",
+    "RobotState",
+    "build_effectors",
+    "build_robot_agent",
+    "make_model",
+]

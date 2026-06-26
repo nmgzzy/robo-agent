@@ -15,6 +15,7 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from pydantic import Field
 
 # 模型分层（FR-1）：profile → 远程模型 id。高频轻量决策用 haiku，复杂规划用 opus。
 PROFILE_MODELS: dict[str, str] = {
@@ -36,6 +37,8 @@ class MockChatModel(BaseChatModel):
 
     responses: list[AIMessage]
     idx: int = 0
+    # 记录每次被调用时收到的输入消息序列，便于断言「记忆是否被注入到了 LLM 输入」（AC-3 雏形）。
+    received: list[list[BaseMessage]] = Field(default_factory=list)
 
     def _generate(
         self,
@@ -44,6 +47,8 @@ class MockChatModel(BaseChatModel):
         run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
+        # received 是可变列表字段，原地 append 即可（无需绕过 pydantic 校验）。
+        self.received.append(list(messages))
         if self.idx >= len(self.responses):
             raise AssertionError(
                 f"MockChatModel 响应已耗尽（已回放 {self.idx} 条，无更多脚本）："
