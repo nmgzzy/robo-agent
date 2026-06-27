@@ -32,6 +32,13 @@ from robot_agent.driver import (
     StandbyPolicy,
     user_message,
 )
+from robot_agent.goals import (
+    Goal,
+    GoalDrivenIdlePolicy,
+    GoalStore,
+    arbitrate,
+    plan_goal,
+)
 from robot_agent.graph import build_robot_agent
 from robot_agent.hal import build_effectors
 from robot_agent.identity import (
@@ -54,6 +61,9 @@ __all__ = [
     "DEFAULT_PROFILE",
     "Driver",
     "Event",
+    "Goal",
+    "GoalDrivenIdlePolicy",
+    "GoalStore",
     "MockChatModel",
     "PriorityInbox",
     "PromptIdlePolicy",
@@ -61,6 +71,7 @@ __all__ = [
     "RobotState",
     "SafetyPolicy",
     "StandbyPolicy",
+    "arbitrate",
     "build_effectors",
     "build_robot_agent",
     "cleanup_threads",
@@ -68,6 +79,7 @@ __all__ = [
     "get_identity",
     "make_model",
     "make_resilient",
+    "plan_goal",
     "set_identity",
     "user_message",
 ]

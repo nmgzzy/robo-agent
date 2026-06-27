@@ -101,8 +101,13 @@ class Driver:
         event = await self.inbox.get(timeout=self.idle_tick)
         from_idle = False
         if event is None:
-            event = await self.idle_policy.on_idle()
-            from_idle = True
+            idle_event = await self.idle_policy.on_idle()
+            # 复查收件箱：on_idle 的 await 期间可能有外部事件入队（空闲事件绕开了优先级队列），
+            # 应让真实事件优先；空闲事件让位，下个 tick 再生。
+            event = await self.inbox.get(timeout=0)
+            if event is None:
+                event = idle_event
+                from_idle = True
             if event is None:
                 return None  # 待机：本 tick 不开回合
 
@@ -110,9 +115,12 @@ class Driver:
         config = {"configurable": {"thread_id": thread_id}}
 
         if thread_id in self._pending:
-            # 该线程在等安全确认：事件即 resume 决策（payload["resume"] 或整个 payload）。
-            resume_value = event.payload.get("resume", event.payload)
-            graph_input: Any = Command(resume=resume_value)
+            # 线程在等安全确认：仅**显式 resume 事件**（payload 带 "resume"）可续跑；
+            # 其它事件（含空闲重发的同线程目标事件）不能应用——否则会把未决 interrupt
+            # 当成畸形 resume 而 fail-closed 否决，或灌入新消息撞 INVALID_CHAT_HISTORY。跳过留待确认。
+            if "resume" not in event.payload:
+                return None
+            graph_input: Any = Command(resume=event.payload["resume"])
         else:
             graph_input = self.make_input(event)
 
