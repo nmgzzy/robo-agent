@@ -21,6 +21,7 @@ from langchain_core.tools import tool
 from langgraph.config import get_store
 from langgraph.prebuilt import InjectedStore
 from langgraph.store.base import BaseStore
+from robot_agent.identity import load_identity_text
 
 # 长期记忆 namespace 种类（设计 §6.2，P1 范围）。
 KIND_FACTS = "facts"
@@ -66,11 +67,15 @@ def make_inject_memory(
     *,
     kinds: Sequence[str] = DEFAULT_RECALL_KINDS,
     max_tokens: int = DEFAULT_MAX_TOKENS,
+    inject_identity: bool = True,
 ):
-    """构造 `pre_model_hook`：检索长期记忆注入上下文 + 裁剪 `messages`（设计 §6.3）。
+    """构造 `pre_model_hook`：注入身份 + 检索长期记忆 + 裁剪 `messages`（设计 §6.3 / §8.8）。
 
     返回的 hook 是 async（用 `asearch`，兼容 `AsyncSqliteStore`）。它返回 `llm_input_messages`
     —— 只作为本次 LLM 输入、**不**改写 State 里的 `messages`（保留完整短期记忆给落盘/复盘）。
+
+    注入顺序（均为 system 块，置于历史之前）：身份（稳定锚点，最前）→ 长期记忆（动态检索）。
+    `inject_identity=True` 时若 `(robot_id, "identity")` 有身份则注入（设计 §P3.2）。
     """
     kinds = tuple(kinds)
 
@@ -100,16 +105,23 @@ def make_inject_memory(
         if store is None:
             return {"llm_input_messages": trimmed}
 
+        system_blocks: list[BaseMessage] = []
+
+        # 2a) 身份：稳定锚点，置于所有 system 块最前（设计 §8.8）。
+        if inject_identity:
+            identity_text = await load_identity_text(store, robot_id)
+            if identity_text is not None:
+                system_blocks.append(SystemMessage(identity_text))
+
+        # 2b) 长期记忆：动态检索，置于身份之后、历史之前。
         items_by_kind: dict[str, list[Any]] = {}
         for kind in kinds:
             items_by_kind[kind] = await store.asearch(ns(robot_id, kind))
-
         memory_text = _format_memory(items_by_kind)
-        if memory_text is None:
-            return {"llm_input_messages": trimmed}
+        if memory_text is not None:
+            system_blocks.append(SystemMessage(memory_text))
 
-        # 长期记忆作为 system 上下文置于最前，供 LLM 决策参考。
-        return {"llm_input_messages": [SystemMessage(memory_text), *trimmed]}
+        return {"llm_input_messages": [*system_blocks, *trimmed]}
 
     return inject_memory
 

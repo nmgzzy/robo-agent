@@ -26,6 +26,12 @@ from __future__ import annotations
 
 from robot_agent.graph import build_robot_agent
 from robot_agent.hal import build_effectors
+from robot_agent.identity import (
+    DEFAULT_IDENTITY,
+    ensure_default_identity,
+    get_identity,
+    set_identity,
+)
 from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
 from robot_agent.reliability import (
     ResilientChatModel,
@@ -36,6 +42,7 @@ from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
 
 __all__ = [
+    "DEFAULT_IDENTITY",
     "DEFAULT_PROFILE",
     "MockChatModel",
     "ResilientChatModel",
@@ -44,6 +51,9 @@ __all__ = [
     "build_effectors",
     "build_robot_agent",
     "cleanup_threads",
+    "ensure_default_identity",
+    "get_identity",
     "make_model",
     "make_resilient",
+    "set_identity",
 ]
