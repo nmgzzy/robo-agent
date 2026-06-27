@@ -45,6 +45,12 @@ from robot_agent.goals import (
     arbitrate,
     plan_goal,
 )
+from robot_agent.governance import (
+    CompactionReport,
+    compact_all,
+    compact_namespace,
+    make_compaction_hook,
+)
 from robot_agent.graph import build_robot_agent
 from robot_agent.hal import build_effectors
 from robot_agent.identity import (
@@ -70,6 +76,7 @@ from robot_agent.state import RobotState
 __all__ = [
     "DEFAULT_IDENTITY",
     "DEFAULT_PROFILE",
+    "CompactionReport",
     "Driver",
     "Episode",
     "Event",
@@ -87,6 +94,9 @@ __all__ = [
     "build_effectors",
     "build_robot_agent",
     "cleanup_threads",
+    "compact_all",
+    "compact_namespace",
+    "make_compaction_hook",
     "ensure_default_identity",
     "get_identity",
     "make_model",
