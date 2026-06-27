@@ -50,6 +50,7 @@ def build_robot_agent(
     safety: SafetyPolicy | None = None,
     metacog: MetacogPolicy | None = None,
     governance: GovernancePolicy | None = None,
+    extra_tools: Sequence[Any] | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
 
@@ -71,6 +72,9 @@ def build_robot_agent(
     # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
     if store is not None:
         tools += build_memory_tools(robot_id)
+    # 动态技能工具（P10）：由 build_skill_tools 生成后传入，运行时扩展能力。
+    if extra_tools:
+        tools += list(extra_tools)
     pre_model_hook = make_inject_memory(robot_id, kinds=recall_kinds)
     # 元认知监控装饰在最外层：先做循环/预算检测，再委托记忆注入。
     if metacog is not None:

@@ -70,7 +70,7 @@ prebuilt   → langgraph
   `pre_model_hook` 调 LLM 前注入长期记忆 + `trim_messages` 裁剪历史；
   `remember_fact`/`recall` 工具经 `InjectedStore` 回写/读取（仅在配了 `store` 时才挂载）。
 
-**自主个体能力域 (P2–P6)**
+**自主个体能力域 (P2–P10)**
 
 - **`reliability.py`** (P2) — `ResilientChatModel` 给决策大脑加重试/超时/降级（按类名识别
   provider 瞬态异常；重试耗尽返回**无工具调用**的保守回复 = 停在原地）；`cleanup_threads`
@@ -92,6 +92,18 @@ prebuilt   → langgraph
   （intent→actions→outcome）写入 `episodic`；`reflect_and_distill` 读 episodic、LLM 蒸馏为
   `facts`/`prefs` 写回；`make_reflect_hook` 挂 driver `on_turn` 自动记录 + 周期蒸馏。蒸馏出的
   偏好经 `pre_model_hook` 在后续回合自动注入（「越用越懂」从愿望变机制）。
+- **`governance/`** (P7+P9) — 治理层：① 记忆 compaction（`compact_namespace`/`compact_all`/
+  `make_compaction_hook`——去重 + LLM 冲突消解（仅 facts/prefs）+ 衰减，AC-6）；② 安全/对齐
+  策略层（`GovernancePolicy`：宪章硬约束 + 工具权限 + 限幅 + 限频，违反**直接拒绝** + `AuditLog`
+  审计，在工具封装层执行）。
+- **`metacog/`** (P8) — 元认知/自我监控：`detect_loop`/`steps_used` + `MetacogPolicy`/
+  `make_monitor_hook` 装饰 `pre_model_hook`，循环/预算越界则 escalate（`interrupt` 上报）或
+  warn（注入告警收敛）；`metrics` 导出。经 `build_robot_agent(..., metacog=...)` 接入。
+- **`skills/`** (P10) — 技能库（技能即数据）：`Skill`（动作序列）+ `SkillStore`（持久化 + 检索）
+  + `build_skill_tools`（动态装配为 `skill_<name>` 工具，可选过治理校验），经
+  `build_robot_agent(..., extra_tools=...)` 运行时加载复用。
+- **`ops/`** (P10) — 运维可观测：`DecisionJournal`/`make_journal_hook`（决策日记，`replay`
+  离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`（健康度聚合导出）。
 
 > **已知缺口（待后续阶段接线）**：`plan_goal` 目前是游离能力，未被 driver/agent 自动调用——
 > 目标的 `plan` 字段不会自动填充，「分解 → 逐步执行」尚未闭环（计划 §P5 设想的「规划节点」待接上）。

@@ -21,7 +21,11 @@
     ├── identity.py     # P3：身份/自我模型（稳定 system 锚点）
     ├── driver/         # P4：自主引擎（收件箱 + 空闲策略 + 常驻循环）
     ├── goals/          # P5：目标系统（模型 + 持久化 + 仲裁 + 规划）
-    └── reflect/        # P6：复盘闭环（回合记录 + episodic→semantic 蒸馏）
+    ├── reflect/        # P6：复盘闭环（回合记录 + episodic→semantic 蒸馏）
+    ├── governance/     # P7+P9：记忆 compaction + 安全对齐策略层（审计）
+    ├── metacog/        # P8：元认知（循环/预算检测 + 上报）
+    ├── skills/         # P10：技能库（数据化技能 + 动态工具加载）
+    └── ops/            # P10：运维可观测（决策日记 + 健康度指标）
 
 **依赖纪律**（对齐 `docs/SLIMMING_NOTES.md`）：硬件 SDK / ROS / OpenCV / 控制算法
 只允许出现在 `hal/plugins/<impl>` 实现包内，不进核心四库依赖树；远程 LLM 客户端
@@ -64,6 +68,12 @@ from robot_agent.identity import (
 )
 from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
 from robot_agent.metacog import MetacogPolicy, detect_loop
+from robot_agent.ops import (
+    DecisionJournal,
+    HealthReport,
+    collect_health,
+    make_journal_hook,
+)
 from robot_agent.reflect import (
     Episode,
     make_reflect_hook,
@@ -75,6 +85,7 @@ from robot_agent.reliability import (
     make_resilient,
 )
 from robot_agent.safety import SafetyPolicy
+from robot_agent.skills import Skill, SkillStore, build_skill_tools
 from robot_agent.state import RobotState
 
 __all__ = [
@@ -82,6 +93,7 @@ __all__ = [
     "DEFAULT_PROFILE",
     "AuditLog",
     "CompactionReport",
+    "DecisionJournal",
     "Driver",
     "Episode",
     "Event",
@@ -89,8 +101,11 @@ __all__ = [
     "GoalDrivenIdlePolicy",
     "GoalStore",
     "GovernancePolicy",
+    "HealthReport",
     "MetacogPolicy",
     "MockChatModel",
+    "Skill",
+    "SkillStore",
     "ToolPermission",
     "PriorityInbox",
     "PromptIdlePolicy",
@@ -101,11 +116,14 @@ __all__ = [
     "arbitrate",
     "build_effectors",
     "build_robot_agent",
+    "build_skill_tools",
     "cleanup_threads",
+    "collect_health",
     "compact_all",
     "compact_namespace",
     "detect_loop",
     "make_compaction_hook",
+    "make_journal_hook",
     "ensure_default_identity",
     "get_identity",
     "make_model",
