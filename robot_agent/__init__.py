@@ -24,6 +24,14 @@
 
 from __future__ import annotations
 
+from robot_agent.driver import (
+    Driver,
+    Event,
+    PriorityInbox,
+    PromptIdlePolicy,
+    StandbyPolicy,
+    user_message,
+)
 from robot_agent.graph import build_robot_agent
 from robot_agent.hal import build_effectors
 from robot_agent.identity import (
@@ -44,10 +52,15 @@ from robot_agent.state import RobotState
 __all__ = [
     "DEFAULT_IDENTITY",
     "DEFAULT_PROFILE",
+    "Driver",
+    "Event",
     "MockChatModel",
+    "PriorityInbox",
+    "PromptIdlePolicy",
     "ResilientChatModel",
     "RobotState",
     "SafetyPolicy",
+    "StandbyPolicy",
     "build_effectors",
     "build_robot_agent",
     "cleanup_threads",
@@ -56,4 +69,5 @@ __all__ = [
     "make_model",
     "make_resilient",
     "set_identity",
+    "user_message",
 ]
