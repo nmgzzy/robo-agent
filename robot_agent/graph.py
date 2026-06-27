@@ -30,6 +30,7 @@ from robot_agent.memory import (
     build_memory_tools,
     make_inject_memory,
 )
+from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
 from robot_agent.tools import build_robot_tools
 
@@ -44,19 +45,22 @@ def build_robot_agent(
     store: BaseStore | None = None,
     robot_id: str = DEFAULT_ROBOT_ID,
     recall_kinds: Sequence[str] = DEFAULT_RECALL_KINDS,
+    safety: SafetyPolicy | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
 
     - `effectors` 缺省用 `build_effectors("mock")`（纯内存执行器，离线可跑、可断言 `.log`）。
     - `checkpointer` / `store` 由调用方按生命周期打开后传入（见 `tests/` 用 `async with`）。
     - 装上 `pre_model_hook=inject_memory`：每次调 LLM 前注入长期记忆 + 裁剪历史。
+    - `safety` 非 None 时开启危险动作 `interrupt` 门控（设计 §7，需同时配 `checkpointer`）。
+      重试 / 超时 / 降级在「决策大脑」一侧用 `reliability.make_resilient(model)` 包装后传入。
 
     返回值是已编译的 `create_react_agent`，支持 `ainvoke`（设计 §4.3 时序）。
     """
     if effectors is None:
         effectors = build_effectors("mock")
 
-    tools = list(build_robot_tools(effectors))
+    tools = list(build_robot_tools(effectors, safety=safety))
     # 记忆回写/读取工具依赖 InjectedStore：仅在配置了 store 时才挂载，
     # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
     if store is not None:

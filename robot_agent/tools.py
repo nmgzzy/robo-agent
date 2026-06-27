@@ -20,13 +20,21 @@ from langchain_core.tools import tool
 
 from langgraph.prebuilt import InjectedState
 from robot_agent.hal.interfaces import Actuator
+from robot_agent.safety import SafetyPolicy, confirm_or_block
 
 
-def build_robot_tools(effectors: Mapping[str, Actuator]) -> list[Any]:
+def build_robot_tools(
+    effectors: Mapping[str, Actuator],
+    *,
+    safety: SafetyPolicy | None = None,
+) -> list[Any]:
     """构建机器人控制工具列表，闭包绑定给定的执行器注册表。
 
     返回：`[move_to, set_velocity, grasp, speak, get_world_state]`。
     前四个经 `Actuator` 下发动作；`get_world_state` 只读注入式世界状态，不触硬件。
+
+    `safety` 非 None 时，危险动作（高速 `set_velocity` / `grasp`）在**下发前**经
+    `confirm_or_block` 走 `interrupt` 门控（设计 §7，需配 checkpointer）；拒绝则跳过执行。
     """
 
     @tool
@@ -38,6 +46,12 @@ def build_robot_tools(effectors: Mapping[str, Actuator]) -> list[Any]:
     @tool
     async def set_velocity(vx: float, wz: float) -> str:
         """设置底盘线速度 vx(m/s)、角速度 wz(rad/s)。"""
+        if safety is not None:
+            approved, note = confirm_or_block(
+                "set_velocity", {"vx": vx, "wz": wz}, safety
+            )
+            if not approved:
+                return f"set_velocity({vx}, {wz}) 被安全门控拒绝：{note or '未确认'}"
         res = await effectors["base"].execute(
             {"action": "set_velocity", "vx": vx, "wz": wz}
         )
@@ -46,6 +60,10 @@ def build_robot_tools(effectors: Mapping[str, Actuator]) -> list[Any]:
     @tool
     async def grasp(obj: str) -> str:
         """用机械臂抓取一个物体（按名称/标签）。"""
+        if safety is not None:
+            approved, note = confirm_or_block("grasp", {"target": obj}, safety)
+            if not approved:
+                return f"grasp({obj!r}) 被安全门控拒绝：{note or '未确认'}"
         res = await effectors["arm"].execute({"action": "grasp", "target": obj})
         return f"grasp({obj!r}) -> {res}"
 

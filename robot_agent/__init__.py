@@ -27,13 +27,23 @@ from __future__ import annotations
 from robot_agent.graph import build_robot_agent
 from robot_agent.hal import build_effectors
 from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
+from robot_agent.reliability import (
+    ResilientChatModel,
+    cleanup_threads,
+    make_resilient,
+)
+from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
 
 __all__ = [
     "DEFAULT_PROFILE",
     "MockChatModel",
+    "ResilientChatModel",
     "RobotState",
+    "SafetyPolicy",
     "build_effectors",
     "build_robot_agent",
+    "cleanup_threads",
     "make_model",
+    "make_resilient",
 ]
