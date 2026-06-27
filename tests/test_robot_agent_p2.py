@@ -301,6 +301,14 @@ async def test_resilient_retries_provider_transient_by_name():
     assert model.calls[-1] == {"attempts": 3, "degraded": False}
 
 
+def test_resilient_sync_generate_is_rejected():
+    # 闭环 async-only：同步 _generate 显式拒绝，而非留事件循环隐患（review 收尾）。
+    flaky = FlakyChatModel(responses=[AIMessage(content="ok")])
+    model = make_resilient(flaky)
+    with pytest.raises(NotImplementedError, match="仅支持异步"):
+        model.invoke([HumanMessage("hi")])
+
+
 async def test_ac_degrade_in_full_loop():
     """决策大脑彻底不可用 → 闭环返回保守降级回复（无工具调用），不崩溃。"""
     flaky = FlakyChatModel(responses=[AIMessage(content="never")], fail_times=99)

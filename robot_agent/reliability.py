@@ -146,9 +146,10 @@ class ResilientChatModel(BaseChatModel):
         run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        # 闭环是 async-only；同步路径仅为接口完整性，复用异步实现。
-        return asyncio.get_event_loop().run_until_complete(
-            self._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        # 闭环是 async-only（async 工具 + ainvoke）。同步 _generate 在已运行的事件循环里
+        # 会抛 RuntimeError，与其留隐患不如显式拒绝：需要同步生成时请改用非包装模型或内层模型。
+        raise NotImplementedError(
+            "ResilientChatModel 仅支持异步路径（ainvoke / _agenerate），不支持同步 _generate。"
         )
 
 
