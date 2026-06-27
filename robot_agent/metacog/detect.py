@@ -20,7 +20,8 @@ def _current_turn(messages: list[Any]) -> list[Any]:
     for i, m in enumerate(messages):
         if getattr(m, "type", None) == "human":
             last_input = i
-    return messages[last_input:] if last_input >= 0 else messages
+    # 无 human 锚点则「本回合」无从界定：返回空，避免把历史动作误判为本回合循环。
+    return messages[last_input:] if last_input >= 0 else []
 
 
 def _tool_signatures(messages: list[Any]) -> list[tuple]:

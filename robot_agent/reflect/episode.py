@@ -74,7 +74,8 @@ def _current_turn_messages(messages: list[Any]) -> list[Any]:
     for i, m in enumerate(messages):
         if getattr(m, "type", None) == "human":
             last_input = i
-    return messages[last_input:] if last_input >= 0 else messages
+    # 无 human 锚点则本回合无从界定：返回空，避免把上一回合的动作算进本回合。
+    return messages[last_input:] if last_input >= 0 else []
 
 
 def episode_from_turn(turn: Any) -> Episode:

@@ -47,11 +47,15 @@ def _make_skill_tool(
             route = _ROUTING.get(name)
             if route is None:
                 return f"技能 {skill.name} 中止：未知动作 {name!r}"
+            eff_name, build = route
+            # 执行器可用性先于治理校验：不可执行的步骤不该白白消耗限频配额、
+            # 也不该在审计里留下「已放行」却从未执行的误导记录（codex review）。
+            if eff_name not in effectors:
+                return f"技能 {skill.name} 中止：执行器 {eff_name!r} 不可用（当前档位未装配）"
             if governance is not None:
                 ok, reason = governance.check(name, args)
                 if not ok:
                     return f"技能 {skill.name} 中止：{reason}"
-            eff_name, build = route
             await effectors[eff_name].execute(build(args))
             done.append(name)
         return f"技能 {skill.name} 执行完成：{' → '.join(done)}"

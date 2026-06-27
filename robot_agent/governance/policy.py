@@ -5,7 +5,8 @@
 - **宪章硬约束**：一组规则谓词，命中即拦截（违反不可批准，区别于 P2 的可确认门控）。
 - **工具权限范围**：白名单/黑名单，越权直接拒绝。
 - **危险动作限幅**：速度等超硬上限拒绝（物理极限，非可商量的危险阈值）。
-- **危险动作限频**：单工具累计调用上限，超频拒绝。
+- **危险动作限频**：单工具累计调用上限，超频拒绝（**每进程**累计，计数随进程重启清零；
+  长跑常驻进程内即终身上限，需跨重启硬配额请在上层持久化后注入）。
 - **审计**：每次允许/拒绝都记入 `AuditLog`，可离线审查（衔接 P10 决策日记）。
 
 在工具封装层执行（设计挂载点）：`build_robot_tools(effectors, governance=...)` 会让每个
@@ -66,8 +67,10 @@ class GovernancePolicy:
     permission: ToolPermission | None = None
     constitution: list[ConstitutionRule] = field(default_factory=list)
     amplitude: AmplitudeLimit | None = None
-    rate_limit: dict[str, int] | None = None  # 工具名 → 累计调用上限
+    rate_limit: dict[str, int] | None = None  # 工具名 → 每进程累计调用上限（重启清零）
     audit: AuditLog = field(default_factory=AuditLog)
+    # 每进程内存计数：重启清零（见 rate_limit 说明）。check 同步无 await 间隙，
+    # asyncio 单线程下读改原子，无需加锁。
     _counts: dict[str, int] = field(default_factory=dict, repr=False)
 
     def _deny(self, name: str, args: dict, reason: str) -> tuple[bool, str]:

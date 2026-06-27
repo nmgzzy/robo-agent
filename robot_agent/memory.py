@@ -114,9 +114,14 @@ def make_inject_memory(
                 system_blocks.append(SystemMessage(identity_text))
 
         # 2b) 长期记忆：动态检索，置于身份之后、历史之前。
+        #     检索层故障（store 异常）时降级为「无记忆」继续，不因记忆问题打断闭环
+        #     （与上面 get_store 缺失时的降级一致）。
         items_by_kind: dict[str, list[Any]] = {}
-        for kind in kinds:
-            items_by_kind[kind] = await store.asearch(ns(robot_id, kind))
+        try:
+            for kind in kinds:
+                items_by_kind[kind] = await store.asearch(ns(robot_id, kind))
+        except Exception:
+            items_by_kind = {}
         memory_text = _format_memory(items_by_kind)
         if memory_text is not None:
             system_blocks.append(SystemMessage(memory_text))
@@ -126,10 +131,12 @@ def make_inject_memory(
     return inject_memory
 
 
-def build_memory_tools(robot_id: str) -> list[Any]:
+def build_memory_tools(robot_id: str, *, governance: Any = None) -> list[Any]:
     """构造记忆回写/读取工具（事实回写路径，设计 §6.3）。
 
     返回 `[remember_fact, recall]`，经 `InjectedStore` 直接拿到长期记忆，无需 LLM 传 store。
+    配 `governance` 时，写回（副作用）也过治理校验——避免记忆写入成为绕过 P9 策略的缺口
+    （读取 `recall` 无副作用，不拦）。
     """
 
     @tool
@@ -142,6 +149,12 @@ def build_memory_tools(robot_id: str) -> list[Any]:
         """把一条长期记忆写回 Store。kind ∈ {facts, episodic, prefs}（默认 facts）。"""
         if kind not in P1_KINDS:
             return f"拒绝写入：未知 kind={kind!r}，可选 {list(P1_KINDS)}。"
+        if governance is not None:
+            ok, reason = governance.check(
+                "remember_fact", {"key": key, "value": value, "kind": kind}
+            )
+            if not ok:
+                return f"remember_fact 被治理策略拒绝：{reason}"
         await store.aput(ns(robot_id, kind), key, {"value": value})
         return f"已记住 [{kind}] {key} = {value}"
 

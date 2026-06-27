@@ -52,8 +52,13 @@ def make_monitor_hook(
 
         if loop or over_budget:
             reason = "检测到重复决策循环" if loop else "本回合步数预算耗尽"
-            # 指纹去重：interrupt 在 resume 时重放本 hook，state 不变 → 同指纹只计一次。
-            incident = (used, bool(loop), over_budget)
+            # 指纹去重：interrupt 在 resume 时重放本 hook → 同指纹只计一次。
+            # 用「本回合 human 计数」作判别键：回合内多步 / resume 重放保持不变（同一事件不重复计，
+            # 不含步数 used——否则同一持续循环随步数变化被重复计入）；新回合（新增 human 锚点）则
+            # 区分开，使跨回合的不同越界各计一次（codex review：避免全局指纹把所有循环坍缩为一次）。
+            turn_key = sum(1 for m in messages if getattr(m, "type", None) == "human")
+            loop_sig = tuple(loop["signature"]) if loop else None
+            incident = (turn_key, loop_sig, over_budget)
             first_time = incident not in policy._counted
             if first_time:
                 policy._counted.add(incident)
@@ -79,7 +84,12 @@ def make_monitor_hook(
                     f"[元认知告警] {reason}：请改变策略或直接给出结论结束，不要重复同一动作。"
                 )
                 msgs = result.get("llm_input_messages", messages)
-                result["llm_input_messages"] = [warn, *msgs]
+                # 插在前导 system 块（身份锚点 + 长期记忆）之后、历史之前：告警是动态指令，
+                # 不能越过「身份为最稳定锚点、置于最前」的约定（设计 §6.3）。
+                i = 0
+                while i < len(msgs) and isinstance(msgs[i], SystemMessage):
+                    i += 1
+                result["llm_input_messages"] = [*msgs[:i], warn, *msgs[i:]]
                 return result
 
         return await inner_hook(state)

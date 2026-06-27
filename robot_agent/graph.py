@@ -67,11 +67,24 @@ def build_robot_agent(
     if effectors is None:
         effectors = build_effectors("mock")
 
+    # interrupt 门控（safety / metacog-escalate）依赖 checkpointer 暂存暂停状态；
+    # 缺失时不在装配期放过、留到动作触发才崩，而是 fail-fast 给出可操作报错（设计 §7）。
+    if checkpointer is None:
+        if safety is not None:
+            raise ValueError(
+                "safety 门控依赖 interrupt，必须同时配置 checkpointer（否则危险动作触发时才报错）。"
+            )
+        if metacog is not None and metacog.on_breach == "escalate":
+            raise ValueError(
+                "metacog on_breach='escalate' 会 interrupt 上报，必须同时配置 checkpointer；"
+                "无 checkpointer 时请改用 on_breach='warn'。"
+            )
+
     tools = list(build_robot_tools(effectors, safety=safety, governance=governance))
     # 记忆回写/读取工具依赖 InjectedStore：仅在配置了 store 时才挂载，
     # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
     if store is not None:
-        tools += build_memory_tools(robot_id)
+        tools += build_memory_tools(robot_id, governance=governance)
     # 动态技能工具（P10）：由 build_skill_tools 生成后传入，运行时扩展能力。
     if extra_tools:
         tools += list(extra_tools)

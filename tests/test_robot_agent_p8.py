@@ -167,7 +167,8 @@ async def test_warn_mode_injects_warning_and_continues():
 
 async def test_no_breach_runs_normally():
     effectors = build_effectors("mock")
-    policy = MetacogPolicy(max_repeats=3, max_steps=10)
+    # on_breach="warn"：无 checkpointer 也可装配（escalate 需 checkpointer，见 graph 装配校验）。
+    policy = MetacogPolicy(max_repeats=3, max_steps=10, on_breach="warn")
     model = make_model(responses=[_mv(1, 1, 1), AIMessage("到了")])
     out = await agent_run(effectors, policy, model)
     assert out["messages"][-1].content == "到了"
