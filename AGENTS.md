@@ -49,10 +49,13 @@ prebuilt   → langgraph
 > 上游被删的外围库：`cli`、`sdk-py`、`sdk-js`、`checkpoint-postgres`、`checkpoint-conformance`；
 > core 内部也删了 `pregel/remote.py` 等远程执行链路。**不要**尝试 import 或恢复这些。
 
-## 应用层 `robot_agent/`：核心闭环「思考 → 决策 → 行动 → 记忆」
+## 应用层 `robot_agent/`：从核心闭环到自主个体
 
-`build_robot_agent()`（`graph.py`）用 `create_react_agent` 把以下件装配成最小可运行闭环。
-各文件对齐 `docs/ROBOT_AGENT_DESIGN.md` 的小节号（注释里标了 §）：
+`build_robot_agent()`（`graph.py`）用 `create_react_agent` 把核心件装配成最小可运行闭环
+（参数：`model` / `effectors` / `checkpointer` / `store` / `pre_model_hook` / 可选 `safety`）。
+各文件对齐 `docs/ROBOT_AGENT_DESIGN.md` 小节号（注释标了 §）；分阶段见 `IMPLEMENTATION_PLAN.md`。
+
+**核心闭环「思考 → 决策 → 行动 → 记忆」(P0–P1)**
 
 - **`llm.py`** — `make_model(profile)` 工厂。`profile ∈ {fast(haiku), smart(opus), mock}`；
   `MockChatModel` 按预设 `AIMessage` 序列确定性回放，驱动整条工具往返。
@@ -66,6 +69,32 @@ prebuilt   → langgraph
 - **`memory.py`** — 长期记忆 namespace `(robot_id, kind)`，kind ∈ `{facts, episodic, prefs}`；
   `pre_model_hook` 调 LLM 前注入长期记忆 + `trim_messages` 裁剪历史；
   `remember_fact`/`recall` 工具经 `InjectedStore` 回写/读取（仅在配了 `store` 时才挂载）。
+
+**自主个体能力域 (P2–P6)**
+
+- **`reliability.py`** (P2) — `ResilientChatModel` 给决策大脑加重试/超时/降级（按类名识别
+  provider 瞬态异常；重试耗尽返回**无工具调用**的保守回复 = 停在原地）；`cleanup_threads`
+  清理过期 checkpoint。用 `make_resilient(model)` 包装后传入 `build_robot_agent`。
+- **`safety.py`** (P2) — 危险动作下发前经 `interrupt` 门控，三级决策：`reject_reason` 硬拒绝
+  （非有限速度，不可批准）＞ `danger_reason` 需确认（高速/抓取，`Command(resume)`，**fail-closed**
+  只认显式 `True`）＞ 放行。需配 `checkpointer`。
+- **`identity.py`** (P3) — 身份 namespace `(robot_id,"identity")`：persona/价值观/能力自知；
+  `pre_model_hook` 把身份作为**稳定 system 锚点**注入到所有 system 块最前（先于动态记忆）。
+- **`driver/`** (P4) — 自主引擎（**被动库 → 个体的分界线**）：`Event`/`Inbox`/`PriorityInbox`
+  收件箱（优先级+超时）、`IdlePolicy`（`StandbyPolicy` 待机 / `PromptIdlePolicy` 自发回合）、
+  `Driver` 常驻循环（`run`/`run_once`/`submit`）。被 `safety` 暂停的线程只接受显式 `resume`
+  事件（`resume_event`）续跑，不灌入新消息。
+- **`goals/`** (P5) — 目标系统：`Goal`（priority/deadline/status/plan，时间戳用 **UTC epoch**）、
+  `GoalStore`（namespace `(robot_id,"goals")` CRUD，list 分页拉满）、`arbitrate`
+  （priority＞deadline＞created_ts 仲裁）、`plan_goal`（意图→步骤分解）、`GoalDrivenIdlePolicy`
+  （driver 空闲时推进目标栈，紧急事件可抢占、处理完恢复到被打断目标）。
+- **`reflect/`** (P6) — 复盘闭环：`Episode`/`record_episode`/`episode_from_turn` 把回合经历
+  （intent→actions→outcome）写入 `episodic`；`reflect_and_distill` 读 episodic、LLM 蒸馏为
+  `facts`/`prefs` 写回；`make_reflect_hook` 挂 driver `on_turn` 自动记录 + 周期蒸馏。蒸馏出的
+  偏好经 `pre_model_hook` 在后续回合自动注入（「越用越懂」从愿望变机制）。
+
+> **已知缺口（待后续阶段接线）**：`plan_goal` 目前是游离能力，未被 driver/agent 自动调用——
+> 目标的 `plan` 字段不会自动填充，「分解 → 逐步执行」尚未闭环（计划 §P5 设想的「规划节点」待接上）。
 
 ## 跨切面纪律（务必遵守）
 
