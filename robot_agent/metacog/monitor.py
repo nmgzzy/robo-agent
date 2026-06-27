@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from langchain_core.messages import BaseMessage, SystemMessage
 
 from langgraph.types import interrupt
+from robot_agent import prompts
 from robot_agent.metacog.detect import detect_loop, steps_used
 
 ESCALATE = "escalate"
@@ -80,9 +81,7 @@ def make_monitor_hook(
                 interrupt(report)
             else:  # WARN：注入告警，促使 LLM 收敛
                 result = await inner_hook(state)
-                warn = SystemMessage(
-                    f"[元认知告警] {reason}：请改变策略或直接给出结论结束，不要重复同一动作。"
-                )
+                warn = SystemMessage(prompts.render("metacog_warn", reason=reason))
                 msgs = result.get("llm_input_messages", messages)
                 # 插在前导 system 块（身份锚点 + 长期记忆）之后、历史之前：告警是动态指令，
                 # 不能越过「身份为最稳定锚点、置于最前」的约定（设计 §6.3）。

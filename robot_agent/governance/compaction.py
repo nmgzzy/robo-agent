@@ -24,6 +24,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
 from langgraph.store.base import BaseStore
+from robot_agent import prompts
 from robot_agent.memory import KIND_EPISODIC, KIND_FACTS, KIND_PREFS, _unwrap_value, ns
 
 # 默认治理的 namespace 种类（身份/目标有各自语义，不在此处粗暴去重）。
@@ -32,12 +33,6 @@ DEFAULT_KINDS: tuple[str, ...] = (KIND_FACTS, KIND_PREFS, KIND_EPISODIC)
 # 且要留给 reflect_and_distill 消费），不可当矛盾事实删除。
 CONFLICT_KINDS: frozenset[str] = frozenset({KIND_FACTS, KIND_PREFS})
 
-CONFLICT_PROMPT = (
-    "下面是机器人的一组长期记忆，每条格式为 `编号: [键=… 更新于=…] 内容`。"
-    "用键与内容判断哪些条目描述**同一主题**；对同主题下互相**矛盾**或**重复**的条目，"
-    "只保留**更新时间最新**的一条，其余每条用一行 `DROP <编号>` 标出。"
-    "不同主题不要互删。只输出 DROP 行；没有需删除的则不输出任何内容。\n\n{memories}"
-)
 _DROP_RE = re.compile(r"DROP\s+(\d+)", re.IGNORECASE)
 _PAGE = 100
 
@@ -116,7 +111,9 @@ async def _resolve_conflicts(
         f"{n}: [键={it.key} 更新于={it.updated_at.isoformat()}] {_unwrap_value(it.value)}"
         for n, it in numbered.items()
     )
-    msg = await model.ainvoke([HumanMessage(CONFLICT_PROMPT.format(memories=listing))])
+    msg = await model.ainvoke(
+        [HumanMessage(prompts.render("conflict", memories=listing))]
+    )
     count = 0
     for m in _DROP_RE.finditer(_content_to_text(msg.content)):
         it = numbered.get(int(m.group(1)))

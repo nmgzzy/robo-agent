@@ -18,24 +18,15 @@ from typing import Any
 
 from langgraph.store.base import BaseStore
 
+from robot_agent import prompts
+
 # 身份 namespace 种类与固定 key（整份身份存为单条记录，便于整体读写）。
 KIND_IDENTITY = "identity"
 IDENTITY_KEY = "self"
 
-# 默认身份：一台室内长期值守的服务机器人。可被 set_identity 覆盖。
-DEFAULT_IDENTITY: dict[str, Any] = {
-    "name": "小巡",
-    "persona": "一台在室内长期值守的服务机器人，性格沉稳、谨慎、乐于助人。",
-    "values": [
-        "安全第一：宁可停下等待，也不做没把握的危险动作。",
-        "尊重在场的人：先沟通再行动，被拒绝就停手。",
-        "诚实：不确定就明说不确定，不编造。",
-    ],
-    "capabilities": {
-        "good_at": ["室内导航与移动", "搬运/抓取轻物", "语音播报与简单问答"],
-        "bad_at": ["精细操作", "户外或复杂地形", "需要长链推理的复杂规划"],
-    },
-}
+# 默认身份：结构化默认值的唯一来源在 prompts/registry.json 的 identity.default_data，
+# 此处取深拷贝常量供 ensure_default_identity 种入。可被 set_identity 覆盖。
+DEFAULT_IDENTITY: dict[str, Any] = prompts.identity_default()
 
 
 def identity_ns(robot_id: str) -> tuple[str, str]:
@@ -83,22 +74,20 @@ def _format_list(items: Sequence[Any]) -> str:
 
 
 def format_identity(identity: Mapping[str, Any]) -> str:
-    """把身份渲染为稳定的 system context 文本块（注入用）。"""
-    lines = [
-        "我是谁（稳定身份，决策时始终遵循；与下方动态记忆不同，这部分不随检索变化）："
-    ]
-    if identity.get("name"):
-        lines.append(f"- 名称：{identity['name']}")
-    if identity.get("persona"):
-        lines.append(f"- 设定：{identity['persona']}")
-    if identity.get("values"):
-        lines.append(f"- 价值观：{_format_list(identity['values'])}")
+    """把身份渲染为稳定的 system context 文本块（注入用）。
+
+    模板在 `prompts/identity.md`；此处只做结构→参数的扁平化（list 拼成文本）。
+    所有字段均渲染（缺失则为空），与纯模板取向一致；默认身份字段齐全。
+    """
     caps = identity.get("capabilities") or {}
-    if caps.get("good_at"):
-        lines.append(f"- 擅长：{_format_list(caps['good_at'])}")
-    if caps.get("bad_at"):
-        lines.append(f"- 不擅长（应谨慎或求助）：{_format_list(caps['bad_at'])}")
-    return "\n".join(lines)
+    return prompts.render(
+        "identity",
+        name=identity.get("name", ""),
+        persona=identity.get("persona", ""),
+        values=_format_list(identity.get("values") or []),
+        good_at=_format_list(caps.get("good_at") or []),
+        bad_at=_format_list(caps.get("bad_at") or []),
+    )
 
 
 async def load_identity_text(store: BaseStore, robot_id: str) -> str | None:

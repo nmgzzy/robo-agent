@@ -105,6 +105,11 @@ prebuilt   → langgraph
   `build_robot_agent(..., extra_tools=...)` 运行时加载复用。
 - **`ops/`** (P10) — 运维可观测：`DecisionJournal`/`make_journal_hook`（决策日记，`replay`
   离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`（健康度聚合导出）。
+- **`prompts/`** — 提示词集中管理（JSON 索引 + Markdown 正文）：全部 LLM 可见文案（身份锚点 /
+  记忆头部 / 开回合指令 / 元认知告警 + 目标分解 / 复盘蒸馏 / 记忆冲突消解）外置到
+  `registry.json`（索引：`file`/`params`/identity 的 `default_data`）+ 各自 `<id>.md`（正文）。
+  loader 启动即加载并缓存、占位符与 `params` 不一致即 fail-fast；只暴露 `render(id, **params)`
+  与 `identity_default()`。设计见 `docs/superpowers/specs/2026-06-27-prompts-central-management-design.md`。
 
 ## 跨切面纪律（务必遵守）
 
@@ -112,6 +117,9 @@ prebuilt   → langgraph
   **不进**核心四库依赖树。远程 LLM 客户端 `langchain-anthropic` 也只在请求真实档位时**惰性 import**。
 - **Mock 优先**：不接真实 LLM / 真硬件即可离线跑通闭环与回归。新增功能优先保证 `mock` 路径可测，
   断言执行器 `.log` 即可验证行为。
+- **提示词归位 `prompts/`**：任何 LLM 可见文案不要内联进逻辑代码；新增/修改提示词走
+  `robot_agent/prompts/`（registry 登记 + `.md` 正文 + 调用处 `prompts.render(id, …)`），
+  占位符须与 `params` 一致（否则启动 fail-fast）。优化提示词 = 直接编辑对应 `.md`。
 - **闭环是 async-only**：执行器 `execute`、工具、`pre_model_hook`、记忆 hook 全是 `async`，
   入口用 `ainvoke`。下发动作的工具必须 `async def` + `await`，否则只是返回未执行的协程。
 - **docstring / 注释**里引用行内代码用单反引号（`` `code` ``），**不要**用 Sphinx 双反引号（`` ``code`` ``）。

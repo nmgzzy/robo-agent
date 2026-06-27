@@ -21,6 +21,7 @@ from langchain_core.tools import tool
 from langgraph.config import get_store
 from langgraph.prebuilt import InjectedStore
 from langgraph.store.base import BaseStore
+from robot_agent import prompts
 from robot_agent.identity import load_identity_text
 
 # 长期记忆 namespace 种类（设计 §6.2，P1 范围）。
@@ -59,7 +60,7 @@ def _format_memory(items_by_kind: Mapping[str, Sequence[Any]]) -> str | None:
             lines.append(f"- [{kind}] {it.key}: {_unwrap_value(it.value)}")
     if not lines:
         return None
-    return "已知的长期记忆（供决策参考，可能不完整）：\n" + "\n".join(lines)
+    return prompts.render("memory_header", items="\n".join(lines))
 
 
 def make_inject_memory(

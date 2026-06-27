@@ -14,6 +14,7 @@ import time
 
 from langchain_core.language_models import BaseChatModel
 
+from robot_agent import prompts
 from robot_agent.driver.events import KIND_GOAL_DUE, Event
 from robot_agent.goals.arbitrate import arbitrate
 from robot_agent.goals.models import STATUS_ACTIVE, Goal
@@ -25,7 +26,7 @@ def _format_goal_prompt(goal: Goal) -> str:
     """把目标（含已分解的 plan）渲染成开回合的指令文本。"""
     if goal.plan:
         steps = "；".join(f"{i + 1}) {s}" for i, s in enumerate(goal.plan))
-        return f"{goal.intent}\n计划步骤：{steps}\n请按计划逐步执行；已完成的步骤不必重复。"
+        return prompts.render("goal_turn", intent=goal.intent, steps=steps)
     return goal.intent
 
 

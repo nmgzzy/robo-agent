@@ -16,16 +16,9 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
 from langgraph.store.base import BaseStore
+from robot_agent import prompts
 from robot_agent.memory import KIND_FACTS, KIND_PREFS, ns
 from robot_agent.reflect.episode import Episode, _content_to_text, read_episodes
-
-DISTILL_PROMPT = (
-    "下面是机器人最近若干回合的经历（想做什么 / 实际做了什么 / 结果）。"
-    "请对比意图与结果，蒸馏出可复用的长期知识。每行一条，仅用以下两种格式：\n"
-    "fact: <键> = <值>   （环境/世界的稳定事实）\n"
-    "pref: <键> = <值>   （用户或自身的偏好）\n"
-    "只输出这些行，不要解释。\n\n经历：\n{episodes}"
-)
 
 # 解析蒸馏行：兼容全角冒号/等号。
 _LINE_RE = re.compile(
@@ -89,7 +82,7 @@ async def reflect_and_distill(
         return DistillResult(episodes_seen=len(episodes))
 
     batch = episodes[-max_episodes:]  # read_episodes 已按 ts 升序，取最近一批
-    prompt = DISTILL_PROMPT.format(episodes=_format_episodes(batch))
+    prompt = prompts.render("distill", episodes=_format_episodes(batch))
     msg = await model.ainvoke([HumanMessage(prompt)])
     items = parse_distilled(_content_to_text(msg.content))
 

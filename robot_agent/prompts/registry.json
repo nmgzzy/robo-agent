@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "prompts": {
+    "identity": {
+      "description": "稳定身份锚点，pre_model_hook 注入到所有 system 块最前（设计 §8.8）",
+      "file": "identity.md",
+      "params": ["name", "persona", "values", "good_at", "bad_at"],
+      "default_data": {
+        "name": "小巡",
+        "persona": "一台在室内长期值守的服务机器人，性格沉稳、谨慎、乐于助人。",
+        "values": [
+          "安全第一：宁可停下等待，也不做没把握的危险动作。",
+          "尊重在场的人：先沟通再行动，被拒绝就停手。",
+          "诚实：不确定就明说不确定，不编造。"
+        ],
+        "capabilities": {
+          "good_at": ["室内导航与移动", "搬运/抓取轻物", "语音播报与简单问答"],
+          "bad_at": ["精细操作", "户外或复杂地形", "需要长链推理的复杂规划"]
+        }
+      }
+    },
+    "memory_header": {
+      "description": "长期记忆注入头部，置于身份之后、历史之前（设计 §6.3）",
+      "file": "memory_header.md",
+      "params": ["items"]
+    },
+    "goal_turn": {
+      "description": "目标驱动空闲策略开回合的指令文本（已分解 plan 时，设计 §8.2）",
+      "file": "goal_turn.md",
+      "params": ["intent", "steps"]
+    },
+    "metacog_warn": {
+      "description": "元认知 warn 模式注入的告警，促 LLM 收敛（设计 §P8）",
+      "file": "metacog_warn.md",
+      "params": ["reason"]
+    },
+    "plan": {
+      "description": "目标分解：把一句话意图拆成有序可执行步骤（设计 §8.2，辅助调用）",
+      "file": "plan.md",
+      "params": ["intent"]
+    },
+    "distill": {
+      "description": "复盘蒸馏：把 episodic 经历提炼为 facts/prefs（设计 §8.3，辅助调用）",
+      "file": "distill.md",
+      "params": ["episodes"]
+    },
+    "conflict": {
+      "description": "记忆 compaction：同主题矛盾/重复条目的 LLM 冲突消解（设计 §P7，辅助调用）",
+      "file": "conflict.md",
+      "params": ["memories"]
+    }
+  }
+}
