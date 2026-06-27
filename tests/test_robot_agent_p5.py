@@ -162,6 +162,27 @@ async def test_plan_goal_respects_max_steps():
     assert steps == ["a", "b", "c"]
 
 
+async def test_plan_goal_rejects_resilience_fallback():
+    """决策大脑降级话术不得被当作步骤（codex review）。"""
+    from robot_agent.reliability import DEFAULT_FALLBACK_TEXT
+
+    model = make_model(responses=[AIMessage(DEFAULT_FALLBACK_TEXT)])
+    assert await plan_goal(model, Goal(id="g1", intent="x")) == []
+
+
+async def test_idle_planning_does_not_persist_fallback():
+    """planner 降级时不持久化 plan，保持可重规划（codex review）。"""
+    from robot_agent.reliability import DEFAULT_FALLBACK_TEXT
+
+    planner = make_model(responses=[AIMessage(DEFAULT_FALLBACK_TEXT)])
+    async with AsyncSqliteStore.from_conn_string(":memory:") as store:
+        gs = GoalStore(store, "r1")
+        await gs.add(Goal(id="g1", intent="拿杯子"))
+        event = await GoalDrivenIdlePolicy(gs, planner_model=planner).on_idle()
+        assert (await gs.get("g1")).plan == []  # 降级未被持久化，可重试
+    assert event.payload["text"] == "拿杯子"  # 回退到纯 intent
+
+
 async def test_plan_goal_handles_structured_content():
     # content 为内容块列表（如 Anthropic 扩展思考）时应抽取文本而非 str(list)（codex review）。
     model = make_model(
@@ -249,6 +270,91 @@ async def test_ac_urgent_event_preempts_then_recovers_to_goal():
     assert (t1.from_idle, t1.thread_id) == (True, "goal-charge")
     assert (t2.from_idle, t2.thread_id) == (False, "sensor")  # 紧急优先，非空闲
     assert (t3.from_idle, t3.thread_id) == (True, "goal-charge")  # 恢复到被打断目标
+
+
+# --------------------------------------------------------------------------- #
+# 规划接线：分解 → 持久化 plan → 注入回合 → 逐步执行
+# --------------------------------------------------------------------------- #
+
+
+async def test_idle_planning_decomposes_and_persists():
+    """配 planner_model 时，首次推进目标会分解并持久化 plan，步骤注入回合指令。"""
+    planner = make_model(responses=[AIMessage("1. 走到桌前\n2. 抓起杯子")])
+    async with AsyncSqliteStore.from_conn_string(":memory:") as store:
+        gs = GoalStore(store, "r1")
+        await gs.add(Goal(id="g1", intent="拿杯子", priority=5))
+        policy = GoalDrivenIdlePolicy(gs, planner_model=planner)
+        event = await policy.on_idle()
+
+        # plan 已分解并持久化。
+        assert (await gs.get("g1")).plan == ["走到桌前", "抓起杯子"]
+    # 步骤注入了回合指令。
+    assert "计划步骤" in event.payload["text"]
+    assert "走到桌前" in event.payload["text"] and "抓起杯子" in event.payload["text"]
+
+
+async def test_idle_planning_skips_when_already_planned():
+    """已有 plan 的目标不重复分解（planner 不被调用）。"""
+    planner = make_model(responses=[])  # 若误调用会因响应耗尽抛错
+    async with AsyncSqliteStore.from_conn_string(":memory:") as store:
+        gs = GoalStore(store, "r1")
+        await gs.add(Goal(id="g1", intent="x", plan=["已有步骤A", "已有步骤B"]))
+        policy = GoalDrivenIdlePolicy(gs, planner_model=planner)
+        event = await policy.on_idle()
+    assert "已有步骤A" in event.payload["text"]  # 沿用已存 plan
+
+
+async def test_idle_without_planner_keeps_p5_behavior():
+    """未配 planner_model 时行为同 P5：只注入 intent，不分解。"""
+    async with AsyncSqliteStore.from_conn_string(":memory:") as store:
+        gs = GoalStore(store, "r1")
+        await gs.add(Goal(id="g1", intent="纯意图", priority=1))
+        event = await GoalDrivenIdlePolicy(gs).on_idle()
+        assert event.payload["text"] == "纯意图"
+        assert (await gs.get("g1")).plan == []
+
+
+async def test_planned_goal_drives_execution_in_driver():
+    """完整闭环：目标 → 分解 → 注入回合 → agent 按计划下发动作。"""
+    robot_id = "robot-1"
+    effectors = build_effectors("mock")
+    planner = make_model(responses=[AIMessage("1. 移动到目标\n2. 抓取")])
+    turn_model = make_model(
+        responses=[
+            _tool_call("move_to", {"x": 1.0, "y": 1.0}, "a"),
+            _tool_call("grasp", {"obj": "box"}, "b"),
+            AIMessage("完成"),
+        ]
+    )
+    async with (
+        AsyncSqliteSaver.from_conn_string(":memory:") as saver,
+        AsyncSqliteStore.from_conn_string(":memory:") as store,
+    ):
+        gs = GoalStore(store, robot_id)
+        await gs.add(Goal(id="fetch", intent="取箱子", priority=10))
+        agent = build_robot_agent(
+            model=turn_model,
+            effectors=effectors,
+            store=store,
+            checkpointer=saver,
+            robot_id=robot_id,
+        )
+        driver = Driver(
+            agent,
+            PriorityInbox(),
+            idle_policy=GoalDrivenIdlePolicy(gs, planner_model=planner),
+            idle_tick=0.01,
+        )
+        turn = await driver.run_once()
+        planned = await gs.get("fetch")
+
+    assert turn.thread_id == "goal-fetch"
+    assert planned.plan == ["移动到目标", "抓取"]  # 目标被分解持久化
+    # 计划注入了回合输入。
+    assert any("计划步骤" in getattr(m, "content", "") for m in turn_model.received[0])
+    # agent 按计划执行了底层动作。
+    assert effectors["base"].log == [{"action": "move_to", "x": 1.0, "y": 1.0}]
+    assert effectors["arm"].log == [{"action": "grasp", "target": "box"}]
 
 
 async def test_idle_does_not_auto_resolve_pending_safety_interrupt():

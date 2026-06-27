@@ -12,16 +12,30 @@ from __future__ import annotations
 
 import time
 
+from langchain_core.language_models import BaseChatModel
+
 from robot_agent.driver.events import KIND_GOAL_DUE, Event
 from robot_agent.goals.arbitrate import arbitrate
-from robot_agent.goals.models import STATUS_ACTIVE
+from robot_agent.goals.models import STATUS_ACTIVE, Goal
+from robot_agent.goals.planning import plan_goal
 from robot_agent.goals.store import GoalStore
 
 
+def _format_goal_prompt(goal: Goal) -> str:
+    """把目标（含已分解的 plan）渲染成开回合的指令文本。"""
+    if goal.plan:
+        steps = "；".join(f"{i + 1}) {s}" for i, s in enumerate(goal.plan))
+        return f"{goal.intent}\n计划步骤：{steps}\n请按计划逐步执行；已完成的步骤不必重复。"
+    return goal.intent
+
+
 class GoalDrivenIdlePolicy:
-    """空闲时推进目标栈的 `IdlePolicy`：仲裁选当前目标 → 开 `goal_due` 回合。
+    """空闲时推进目标栈的 `IdlePolicy`：仲裁选当前目标 → （首次）分解 → 开 `goal_due` 回合。
 
     - `mark_active`：被选中的目标顺手标记为 `active`（让外部可观测「在追哪个目标」）。
+    - `planner_model`：非 None 时，目标**首次**被推进且 `plan` 为空则调 `plan_goal` 分解，
+      持久化进 `goal.plan` 并把步骤注入回合指令——闭合「分解 → 逐步执行」（建议用独立/更省
+      的模型，避免与回合决策共用脚本/预算）。已有 plan 的目标不重复分解。
     - `priority`：空闲目标事件的优先级（默认 0，确保真正紧急的外部事件能抢先）。
     - 无可推进目标时返回 None（交还给 driver → 待机）。
     """
@@ -30,11 +44,15 @@ class GoalDrivenIdlePolicy:
         self,
         goal_store: GoalStore,
         *,
+        planner_model: BaseChatModel | None = None,
+        max_plan_steps: int = 10,
         priority: int = 0,
         mark_active: bool = True,
         thread_prefix: str = "goal-",
     ) -> None:
         self.goal_store = goal_store
+        self.planner_model = planner_model
+        self.max_plan_steps = max_plan_steps
         self.priority = priority
         self.mark_active = mark_active
         self.thread_prefix = thread_prefix
@@ -44,12 +62,19 @@ class GoalDrivenIdlePolicy:
         if goal is None:
             return None  # 无目标可推进 → 待机
         if self.mark_active and goal.status != STATUS_ACTIVE:
-            await self.goal_store.mark(goal.id, STATUS_ACTIVE)
+            goal = await self.goal_store.mark(goal.id, STATUS_ACTIVE)
+        # 规划接线：首次推进、尚未分解时，分解并持久化 plan，供本回合及后续按计划执行。
+        if self.planner_model is not None and not goal.plan:
+            steps = await plan_goal(
+                self.planner_model, goal, max_steps=self.max_plan_steps
+            )
+            if steps:
+                goal = await self.goal_store.set_plan(goal.id, steps)
         return Event(
             kind=KIND_GOAL_DUE,
             ts=time.monotonic(),
             payload={
-                "text": goal.intent,
+                "text": _format_goal_prompt(goal),
                 "thread_id": f"{self.thread_prefix}{goal.id}",
                 "goal_id": goal.id,
             },

@@ -14,6 +14,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 
 from robot_agent.goals.models import Goal
+from robot_agent.reliability import DEFAULT_FALLBACK_TEXT
 
 PLAN_PROMPT = (
     "把下面的目标分解为有序、可执行的子步骤。每行只写一个步骤，"
@@ -60,4 +61,9 @@ async def plan_goal(
 ) -> list[str]:
     """让决策大脑把 `goal.intent` 分解为步骤列表（≤ max_steps）。不落库，调用方决定持久化。"""
     msg = await model.ainvoke([HumanMessage(PLAN_PROMPT.format(intent=goal.intent))])
-    return _parse_steps(_content_to_text(msg.content), max_steps)
+    text = _content_to_text(msg.content)
+    # 决策大脑降级（ResilientChatModel 重试耗尽返回保守话术）不是计划——丢弃，留待重试，
+    # 避免把「停在原地等待」当成步骤持久化、永久阻止重规划。
+    if text.strip() == DEFAULT_FALLBACK_TEXT:
+        return []
+    return _parse_steps(text, max_steps)

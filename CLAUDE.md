@@ -87,7 +87,8 @@ prebuilt   → langgraph
 - **`goals/`** (P5) — 目标系统：`Goal`（priority/deadline/status/plan，时间戳用 **UTC epoch**）、
   `GoalStore`（namespace `(robot_id,"goals")` CRUD，list 分页拉满）、`arbitrate`
   （priority＞deadline＞created_ts 仲裁）、`plan_goal`（意图→步骤分解）、`GoalDrivenIdlePolicy`
-  （driver 空闲时推进目标栈，紧急事件可抢占、处理完恢复到被打断目标）。
+  （driver 空闲时推进目标栈，紧急事件可抢占、处理完恢复到被打断目标）。配 `planner_model` 时，
+  目标首次推进会自动 `plan_goal` 分解、持久化 `plan` 并注入回合——闭合「分解→逐步执行」。
 - **`reflect/`** (P6) — 复盘闭环：`Episode`/`record_episode`/`episode_from_turn` 把回合经历
   （intent→actions→outcome）写入 `episodic`；`reflect_and_distill` 读 episodic、LLM 蒸馏为
   `facts`/`prefs` 写回；`make_reflect_hook` 挂 driver `on_turn` 自动记录 + 周期蒸馏。蒸馏出的
@@ -104,9 +105,6 @@ prebuilt   → langgraph
   `build_robot_agent(..., extra_tools=...)` 运行时加载复用。
 - **`ops/`** (P10) — 运维可观测：`DecisionJournal`/`make_journal_hook`（决策日记，`replay`
   离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`（健康度聚合导出）。
-
-> **已知缺口（待后续阶段接线）**：`plan_goal` 目前是游离能力，未被 driver/agent 自动调用——
-> 目标的 `plan` 字段不会自动填充，「分解 → 逐步执行」尚未闭环（计划 §P5 设想的「规划节点」待接上）。
 
 ## 跨切面纪律（务必遵守）
 
