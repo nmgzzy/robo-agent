@@ -30,6 +30,7 @@ from robot_agent.memory import (
     build_memory_tools,
     make_inject_memory,
 )
+from robot_agent.governance.policy import GovernancePolicy
 from robot_agent.metacog import MetacogPolicy, make_monitor_hook
 from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
@@ -48,6 +49,7 @@ def build_robot_agent(
     recall_kinds: Sequence[str] = DEFAULT_RECALL_KINDS,
     safety: SafetyPolicy | None = None,
     metacog: MetacogPolicy | None = None,
+    governance: GovernancePolicy | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
 
@@ -64,7 +66,7 @@ def build_robot_agent(
     if effectors is None:
         effectors = build_effectors("mock")
 
-    tools = list(build_robot_tools(effectors, safety=safety))
+    tools = list(build_robot_tools(effectors, safety=safety, governance=governance))
     # 记忆回写/读取工具依赖 InjectedStore：仅在配置了 store 时才挂载，
     # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
     if store is not None:

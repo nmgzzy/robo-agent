@@ -46,7 +46,10 @@ from robot_agent.goals import (
     plan_goal,
 )
 from robot_agent.governance import (
+    AuditLog,
     CompactionReport,
+    GovernancePolicy,
+    ToolPermission,
     compact_all,
     compact_namespace,
     make_compaction_hook,
@@ -77,6 +80,7 @@ from robot_agent.state import RobotState
 __all__ = [
     "DEFAULT_IDENTITY",
     "DEFAULT_PROFILE",
+    "AuditLog",
     "CompactionReport",
     "Driver",
     "Episode",
@@ -84,8 +88,10 @@ __all__ = [
     "Goal",
     "GoalDrivenIdlePolicy",
     "GoalStore",
+    "GovernancePolicy",
     "MetacogPolicy",
     "MockChatModel",
+    "ToolPermission",
     "PriorityInbox",
     "PromptIdlePolicy",
     "ResilientChatModel",
