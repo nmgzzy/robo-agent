@@ -60,6 +60,7 @@ from robot_agent.identity import (
     set_identity,
 )
 from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
+from robot_agent.metacog import MetacogPolicy, detect_loop
 from robot_agent.reflect import (
     Episode,
     make_reflect_hook,
@@ -83,6 +84,7 @@ __all__ = [
     "Goal",
     "GoalDrivenIdlePolicy",
     "GoalStore",
+    "MetacogPolicy",
     "MockChatModel",
     "PriorityInbox",
     "PromptIdlePolicy",
@@ -96,6 +98,7 @@ __all__ = [
     "cleanup_threads",
     "compact_all",
     "compact_namespace",
+    "detect_loop",
     "make_compaction_hook",
     "ensure_default_identity",
     "get_identity",

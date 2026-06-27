@@ -30,6 +30,7 @@ from robot_agent.memory import (
     build_memory_tools,
     make_inject_memory,
 )
+from robot_agent.metacog import MetacogPolicy, make_monitor_hook
 from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
 from robot_agent.tools import build_robot_tools
@@ -46,6 +47,7 @@ def build_robot_agent(
     robot_id: str = DEFAULT_ROBOT_ID,
     recall_kinds: Sequence[str] = DEFAULT_RECALL_KINDS,
     safety: SafetyPolicy | None = None,
+    metacog: MetacogPolicy | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
 
@@ -54,6 +56,8 @@ def build_robot_agent(
     - 装上 `pre_model_hook=inject_memory`：每次调 LLM 前注入长期记忆 + 裁剪历史。
     - `safety` 非 None 时开启危险动作 `interrupt` 门控（设计 §7，需同时配 `checkpointer`）。
       重试 / 超时 / 降级在「决策大脑」一侧用 `reliability.make_resilient(model)` 包装后传入。
+    - `metacog` 非 None 时用元认知监控装饰 `pre_model_hook`（循环/预算检测，§8.5）；
+      `on_breach="escalate"` 会 `interrupt` 上报，需同时配 `checkpointer`。
 
     返回值是已编译的 `create_react_agent`，支持 `ainvoke`（设计 §4.3 时序）。
     """
@@ -66,6 +70,9 @@ def build_robot_agent(
     if store is not None:
         tools += build_memory_tools(robot_id)
     pre_model_hook = make_inject_memory(robot_id, kinds=recall_kinds)
+    # 元认知监控装饰在最外层：先做循环/预算检测，再委托记忆注入。
+    if metacog is not None:
+        pre_model_hook = make_monitor_hook(pre_model_hook, metacog)
 
     return create_react_agent(
         model,
