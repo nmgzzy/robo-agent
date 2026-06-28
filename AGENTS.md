@@ -15,6 +15,9 @@ uv venv && source .venv/bin/activate
 uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
 # 或：make install（遍历 libs/* 安装）
 
+# 配置 LLM：复制模板并填写密钥/端点/模型
+cp .env.example .env
+
 make test                              # 根目录跑全部验收/回归（= pytest tests/）
 TEST=tests/test_memory.py make test    # 只跑某个文件；TEST 可附加任意 pytest 参数
 uv run --active pytest tests/test_robot_agent_p1.py -k recall   # 直接 pytest 也可
@@ -57,8 +60,10 @@ prebuilt   → langgraph
 
 **核心闭环「思考 → 决策 → 行动 → 记忆」(P0–P1)**
 
-- **`llm.py`** — `make_model(profile)` 工厂。`profile ∈ {fast(haiku), smart(opus), mock}`；
-  `MockChatModel` 按预设 `AIMessage` 序列确定性回放，驱动整条工具往返。
+- **`llm.py`** — `make_model(profile)` 工厂。`profile ∈ {fast, smart, mock}`；真实模型经
+  仓库根 `.env`（模板 `.env.example`）/ `LLM_*` 环境变量或显式参数配置 `provider` /
+  `base_url` / `api_key` / 模型名（默认 `openai` 兼容 API，`anthropic` 亦支持）；
+  `MockChatModel` 按预设 `AIMessage` 序列确定性回放。
 - **`state.py`** — `RobotState(AgentState)`：`messages`（短期工作记忆）+ 只读世界状态
   `pose/battery/detections`（由**外部**感知源快照注入，Agent 只读）。
 - **`hal/`** — 硬件抽象层。`interfaces.py` 定义 `SensorSource`/`Actuator` **Protocol**（鸭子类型，
@@ -114,7 +119,7 @@ prebuilt   → langgraph
 ## 跨切面纪律（务必遵守）
 
 - **依赖纪律**：硬件 SDK / ROS / OpenCV / 控制算法只允许出现在 `hal/plugins/<impl>` 实现包内，
-  **不进**核心四库依赖树。远程 LLM 客户端 `langchain-anthropic` 也只在请求真实档位时**惰性 import**。
+  **不进**核心四库依赖树。远程 LLM 客户端（`langchain-openai` / `langchain-anthropic`）也只在请求真实档位时**惰性 import**。
 - **Mock 优先**：不接真实 LLM / 真硬件即可离线跑通闭环与回归。新增功能优先保证 `mock` 路径可测，
   断言执行器 `.log` 即可验证行为。
 - **提示词归位 `prompts/`**：任何 LLM 可见文案不要内联进逻辑代码；新增/修改提示词走

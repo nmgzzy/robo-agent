@@ -4,10 +4,13 @@
 - 冒烟导入通过（StateGraph / create_react_agent / AsyncSqliteSaver / AsyncSqliteStore）；
 - 应用层 robot_agent 可 import；
 - LLM 工厂 make_model 的 Mock 路径不接真实 LLM 即可工作；
-- 不接真硬件、不接真 LLM 也能 import 成功（langchain-anthropic 惰性导入）。
+- 不接真硬件、不接真 LLM 也能 import 成功（远程客户端惰性导入）。
 """
 
 from __future__ import annotations
+
+import os
+from unittest.mock import patch
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -28,6 +31,7 @@ def test_robot_agent_importable():
 
     assert hasattr(robot_agent, "make_model")
     assert hasattr(robot_agent, "MockChatModel")
+    assert hasattr(robot_agent, "load_llm_config_from_env")
 
 
 def test_make_model_mock_profile_returns_chat_model():
@@ -69,12 +73,122 @@ def test_make_model_unknown_profile_raises():
         make_model("nonexistent-profile")
 
 
-def test_make_model_real_profile_helpful_error_when_client_missing(monkeypatch):
-    """真实档位且未装 langchain-anthropic 时，给出可操作的 ImportError。
+def test_load_llm_config_from_env(tmp_path):
+    from robot_agent.env import load_env
+    from robot_agent.llm import LLMConfig, load_llm_config_from_env
 
-    通过隐藏该模块来**确定性**复现「未安装」，不依赖真实环境是否装了客户端，
-    也保证 robot_agent 自身 import 不受影响（依赖惰性）。
-    """
+    dotenv = tmp_path / ".env"
+    dotenv.write_text(
+        "\n".join(
+            [
+                "LLM_PROVIDER=openai_compatible",
+                "LLM_API_KEY=sk-test",
+                "LLM_BASE_URL=http://localhost:8000/v1",
+                "LLM_MODEL=qwen-plus",
+                "LLM_MODEL_FAST=qwen-turbo",
+                "LLM_MODEL_SMART=qwen-max",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    with patch.dict(os.environ, {}, clear=True):
+        load_env(path=dotenv, override=True)
+        cfg = load_llm_config_from_env()
+        assert cfg == LLMConfig(
+            provider="openai",
+            model="qwen-plus",
+            model_fast="qwen-turbo",
+            model_smart="qwen-max",
+            api_key="sk-test",
+            base_url="http://localhost:8000/v1",
+        )
+
+
+def test_load_env_does_not_override_existing_shell_vars(tmp_path):
+    from robot_agent.env import load_env
+
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("LLM_API_KEY=from-dotenv\n", encoding="utf-8")
+    with patch.dict(os.environ, {"LLM_API_KEY": "from-shell"}, clear=True):
+        load_env(path=dotenv, override=False)
+        assert os.environ["LLM_API_KEY"] == "from-shell"
+        load_env(path=dotenv, override=True)
+        assert os.environ["LLM_API_KEY"] == "from-dotenv"
+
+
+def test_load_env_parses_quoted_values(tmp_path):
+    from robot_agent.env import load_env
+
+    dotenv = tmp_path / ".env"
+    dotenv.write_text('LLM_BASE_URL="http://localhost:8000/v1"\n', encoding="utf-8")
+    with patch.dict(os.environ, {}, clear=True):
+        load_env(path=dotenv, override=True)
+        assert os.environ["LLM_BASE_URL"] == "http://localhost:8000/v1"
+
+
+def test_find_dotenv_does_not_use_unrelated_working_directory(monkeypatch, tmp_path):
+    import robot_agent.env as env_module
+
+    repo_root = tmp_path / "repo"
+    working_dir = tmp_path / "other-project"
+    repo_root.mkdir()
+    working_dir.mkdir()
+    (working_dir / ".env").write_text("LLM_API_KEY=wrong\n", encoding="utf-8")
+    monkeypatch.setattr(env_module, "_repo_root", lambda: repo_root)
+    monkeypatch.chdir(working_dir)
+
+    assert env_module.find_dotenv() is None
+
+
+def test_load_llm_config_falls_back_to_openai_api_key(monkeypatch):
+    from robot_agent.llm import load_llm_config_from_env
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+
+    cfg = load_llm_config_from_env()
+    assert cfg.api_key == "sk-openai"
+
+
+def test_explicit_provider_uses_matching_fallback_api_key(monkeypatch):
+    from robot_agent.llm import load_llm_config_from_env
+
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
+
+    cfg = load_llm_config_from_env(provider="anthropic")
+    assert cfg.provider == "anthropic"
+    assert cfg.api_key == "sk-anthropic"
+
+
+def test_normalize_provider_rejects_unknown_openai_prefix():
+    from robot_agent.llm import normalize_provider
+
+    with pytest.raises(ValueError, match="未知 LLM provider"):
+        normalize_provider("openai_typo")
+
+
+def test_resolve_model_name_priority():
+    from robot_agent.llm import LLMConfig, resolve_model_name
+
+    cfg = LLMConfig(
+        provider="openai",
+        model="shared",
+        model_fast="fast-only",
+        model_smart="smart-only",
+    )
+    assert resolve_model_name("fast", cfg) == "fast-only"
+    assert resolve_model_name("smart", cfg) == "smart-only"
+
+    cfg_shared = LLMConfig(provider="openai", model="shared")
+    assert resolve_model_name("fast", cfg_shared) == "shared"
+
+
+def test_make_model_real_profile_helpful_error_when_client_missing(monkeypatch):
+    """真实档位且未装 langchain-openai 时，给出可操作的 ImportError。"""
     import builtins
 
     from robot_agent import make_model
@@ -82,26 +196,61 @@ def test_make_model_real_profile_helpful_error_when_client_missing(monkeypatch):
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name == "langchain_anthropic" or name.startswith("langchain_anthropic."):
-            raise ImportError("simulated missing langchain-anthropic")
+        if name == "langchain_openai" or name.startswith("langchain_openai."):
+            raise ImportError("simulated missing langchain-openai")
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ImportError, match="langchain-anthropic"):
-        make_model("smart")
+    with pytest.raises(ImportError, match="langchain-openai"):
+        make_model("smart", provider="openai")
 
 
-def test_make_model_real_profile_builds_client_when_present(monkeypatch):
-    """真实档位可用时，按档位映射的模型 id 构建客户端并透传 overrides。
-
-    注入一个假的 ChatAnthropic（不触真实凭证 / 网络），避免在装了客户端但无
-    ANTHROPIC_API_KEY 的环境里破坏「离线可测」承诺。
-    """
+def test_make_model_openai_builds_client_when_present(monkeypatch):
+    """OpenAI 兼容档位：注入假 ChatOpenAI，验证 model / api_key / base_url 透传。"""
     import sys
     import types
 
     from robot_agent import make_model
-    from robot_agent.llm import PROFILE_MODELS
+    from robot_agent.llm import LLMConfig
+
+    captured: dict = {}
+
+    class _FakeChatOpenAI(BaseChatModel):
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            super().__init__()
+
+        def _generate(self, *a, **k):  # pragma: no cover
+            raise NotImplementedError
+
+        @property
+        def _llm_type(self) -> str:
+            return "fake-openai"
+
+    fake_mod = types.ModuleType("langchain_openai")
+    fake_mod.ChatOpenAI = _FakeChatOpenAI
+    monkeypatch.setitem(sys.modules, "langchain_openai", fake_mod)
+
+    cfg = LLMConfig(
+        provider="openai",
+        model="gpt-4o-mini",
+        api_key="dummy",
+        base_url="http://localhost:11434/v1",
+    )
+    model = make_model("fast", config=cfg)
+    assert isinstance(model, _FakeChatOpenAI)
+    assert captured["model"] == "gpt-4o-mini"
+    assert captured["api_key"] == "dummy"
+    assert captured["base_url"] == "http://localhost:11434/v1"
+
+
+def test_make_model_anthropic_builds_client_when_present(monkeypatch):
+    """Anthropic 档位：注入假 ChatAnthropic，验证按档位映射的模型 id。"""
+    import sys
+    import types
+
+    from robot_agent import make_model
+    from robot_agent.llm import LLMConfig, PROFILE_MODELS
 
     captured: dict = {}
 
@@ -110,7 +259,7 @@ def test_make_model_real_profile_builds_client_when_present(monkeypatch):
             captured.update(kwargs)
             super().__init__()
 
-        def _generate(self, *a, **k):  # pragma: no cover - 不会被调用
+        def _generate(self, *a, **k):  # pragma: no cover
             raise NotImplementedError
 
         @property
@@ -121,7 +270,11 @@ def test_make_model_real_profile_builds_client_when_present(monkeypatch):
     fake_mod.ChatAnthropic = _FakeChatAnthropic
     monkeypatch.setitem(sys.modules, "langchain_anthropic", fake_mod)
 
-    model = make_model("fast", api_key="dummy")
+    model = make_model(
+        "fast",
+        config=LLMConfig(provider="anthropic"),
+        api_key="dummy",
+    )
     assert isinstance(model, _FakeChatAnthropic)
     assert captured["model"] == PROFILE_MODELS["fast"]
     assert captured["api_key"] == "dummy"

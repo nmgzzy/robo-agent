@@ -29,11 +29,12 @@
 
 **依赖纪律**（对齐 `docs/SLIMMING_NOTES.md`）：硬件 SDK / ROS / OpenCV / 控制算法
 只允许出现在 `hal/plugins/<impl>` 实现包内，不进核心四库依赖树；远程 LLM 客户端
-（`langchain-anthropic`）也只在请求真实模型时惰性导入，离线/测试用 Mock。
+（`langchain-openai` / `langchain-anthropic`）也只在请求真实模型时惰性导入，离线/测试用 Mock。
 """
 
 from __future__ import annotations
 
+from robot_agent.env import ensure_env_loaded, load_env
 from robot_agent.driver import (
     Driver,
     Event,
@@ -66,7 +67,13 @@ from robot_agent.identity import (
     get_identity,
     set_identity,
 )
-from robot_agent.llm import DEFAULT_PROFILE, MockChatModel, make_model
+from robot_agent.llm import (
+    DEFAULT_PROFILE,
+    LLMConfig,
+    MockChatModel,
+    load_llm_config_from_env,
+    make_model,
+)
 from robot_agent.metacog import MetacogPolicy, detect_loop
 from robot_agent.ops import (
     DecisionJournal,
@@ -88,6 +95,8 @@ from robot_agent.safety import SafetyPolicy
 from robot_agent.skills import Skill, SkillStore, build_skill_tools
 from robot_agent.state import RobotState
 
+ensure_env_loaded()
+
 __all__ = [
     "DEFAULT_IDENTITY",
     "DEFAULT_PROFILE",
@@ -102,6 +111,7 @@ __all__ = [
     "GoalStore",
     "GovernancePolicy",
     "HealthReport",
+    "LLMConfig",
     "MetacogPolicy",
     "MockChatModel",
     "Skill",
@@ -126,6 +136,8 @@ __all__ = [
     "make_journal_hook",
     "ensure_default_identity",
     "get_identity",
+    "load_env",
+    "load_llm_config_from_env",
     "make_model",
     "make_reflect_hook",
     "make_resilient",
