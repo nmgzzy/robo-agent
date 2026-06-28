@@ -12,6 +12,7 @@
     robot_agent/
     ├── llm.py          # P0：LLM 工厂 make_model(profile)（含 Mock）
     ├── state.py        # P1：State schema（messages + 只读世界状态）
+    ├── context.py      # P1：中短期记忆高水位滚动摘要
     ├── hal/            # P1：SensorSource / Actuator 接口 + Mock 实现
     ├── tools.py        # P1：机器人控制工具（Actuator → @tool，可选 safety 门控）
     ├── memory.py       # P1/P3：长期记忆 + 身份注入 hook + namespace 约定
@@ -36,6 +37,11 @@
 from __future__ import annotations
 
 from robot_agent.env import ensure_env_loaded, load_env
+from robot_agent.context import (
+    DEFAULT_CONTEXT_POLICY,
+    ContextPolicy,
+    load_context_policy_from_env,
+)
 from robot_agent.driver import (
     Driver,
     Event,
@@ -107,9 +113,11 @@ ensure_env_loaded()
 
 __all__ = [
     "DEFAULT_IDENTITY",
+    "DEFAULT_CONTEXT_POLICY",
     "DEFAULT_PROFILE",
     "AuditLog",
     "CompactionReport",
+    "ContextPolicy",
     "DecisionJournal",
     "Driver",
     "Episode",
@@ -150,6 +158,7 @@ __all__ = [
     "ensure_default_identity",
     "get_identity",
     "load_env",
+    "load_context_policy_from_env",
     "load_llm_config_from_env",
     "make_model",
     "make_reflect_hook",

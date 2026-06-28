@@ -61,19 +61,23 @@ prebuilt   → langgraph
 
 **核心闭环「思考 → 决策 → 行动 → 记忆」(P0–P1)**
 
-- **`llm.py`** — `make_model(profile)` 工厂。`profile ∈ {fast, smart, mock}`；真实模型经
+- **`llm.py`** — `make_model(profile)` 工厂。`profile ∈ {fast, smart, vision, mock}`；真实模型经
   仓库根 `.env`（模板 `.env.example`）/ `LLM_*` 环境变量或显式参数配置 `provider` /
   `base_url` / `api_key` / 模型名（默认 `openai` 兼容 API，`anthropic` 亦支持）；
   `MockChatModel` 按预设 `AIMessage` 序列确定性回放。
-- **`state.py`** — `RobotState(AgentState)`：`messages`（短期工作记忆）+ 只读世界状态
-  `pose/battery/detections`（由**外部**感知源快照注入，Agent 只读）。
+- **`state.py`** — `RobotState(AgentState)`：`messages`（近期原文）+ `context_summary`
+  （较老会话的滚动摘要）+ 只读世界状态 `pose/battery/detections`（由**外部**感知源快照注入）。
 - **`hal/`** — 硬件抽象层。`interfaces.py` 定义 `SensorSource`/`Actuator` **Protocol**（鸭子类型，
   无需继承）；`mock.py` 是纯内存实现；`registry.py` 的 `build_effectors(tier)` 按档位装配，
   P1 仅 `mock`，`real`/`sim` 留给 `hal/plugins/<impl>`。
 - **`tools.py`** — `build_robot_tools(effectors)`：把执行器包成 `@tool`
   （`move_to/set_velocity/grasp/speak` + 只读 `get_world_state`）。所有副作用都过工具。
-- **`memory.py`** — 长期记忆 namespace `(robot_id, kind)`，kind ∈ `{facts, episodic, prefs}`；
-  `pre_model_hook` 调 LLM 前注入长期记忆 + `trim_messages` 裁剪历史；
+- **`context.py` / `memory.py`** — 中短期记忆在 token 高水位时用模型增量摘要已完成的较老
+  回合，把摘要、压缩次数和最近原文写入 checkpoint；摘要失败只累计失败计数并临时硬裁剪，
+  不覆盖原消息和摘要。五项 token 限额由根 `.env` 的 `CONTEXT_*_TOKENS` 配置，显式
+  `ContextPolicy` 优先。
+  长期记忆 namespace `(robot_id, kind)`，kind ∈ `{facts, episodic, prefs}`，由同一
+  `pre_model_hook` 在调用 LLM 前注入；
   `remember_fact`/`recall` 工具经 `InjectedStore` 回写/读取（仅在配了 `store` 时才挂载）。
 
 **自主个体能力域 (P2–P10)**
@@ -114,9 +118,10 @@ prebuilt   → langgraph
   图片进入 VLM 前自动限制到 720p 并压缩过高质量编码；`describe_image` 经
   `build_robot_agent(..., vlm_model=..., vision_source=...)` 挂载。
 - **`ops/`** (P10) — 运维可观测：`DecisionJournal`/`make_journal_hook`（决策日记，`replay`
-  离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`（健康度聚合导出）。
+  离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`
+  （健康度聚合导出，含会话压缩次数/失败/归档量，可读 Mapping 或图状态快照）。
 - **`prompts/`** — 提示词集中管理（JSON 索引 + Markdown 正文）：全部 LLM 可见文案（身份锚点 /
-  记忆头部 / 开回合指令 / 元认知告警 + 目标分解 / 复盘蒸馏 / 记忆冲突消解 /
+  长短期记忆 / 会话摘要 / 开回合指令 / 元认知告警 + 目标分解 / 复盘蒸馏 /
   视觉理解与信任边界）外置到
   `registry.json`（索引：`file`/`params`/identity 的 `default_data`）+ 各自 `<id>.md`（正文）。
   loader 启动即加载并缓存、占位符与 `params` 不一致即 fail-fast；只暴露 `render(id, **params)`

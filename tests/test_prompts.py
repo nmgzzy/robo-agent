@@ -29,6 +29,11 @@ _SAMPLE = {
         "bad_at": "精细操作",
     },
     "memory_header": {"items": "- [facts] x: 1"},
+    "context_summarize": {
+        "previous_summary_json": '"此前摘要"',
+        "conversation_json": '[{"role":"human","content":"继续"}]',
+    },
+    "context_summary": {"summary_json": '"此前摘要"'},
     "goal_turn": {"intent": "巡视", "steps": "1) A；2) B"},
     "metacog_warn": {"reason": "检测到循环"},
     "plan": {"intent": "把东西搬过去"},

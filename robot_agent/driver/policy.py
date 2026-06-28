@@ -61,7 +61,7 @@ def default_decide_thread(event: Event) -> str:
     """默认回合选择：payload 显式 `thread_id` 优先，否则按事件类别归并到同一回合。
 
     同类事件归并到同一 `thread_id`（如所有用户对话进 `user_msg`、所有自发心跳进 `timer`），
-    使长期记忆与上下文在该线程内连续累积（超长由 P2 的 `trim_messages` 控制）。
+    使长期记忆与上下文在该线程内连续累积（超长由滚动摘要控制）。
     """
     return event.payload.get("thread_id") or event.kind
 

@@ -24,6 +24,16 @@
       "file": "memory_header.md",
       "params": ["items"]
     },
+    "context_summarize": {
+      "description": "中短期记忆：把已有滚动摘要与较老会话增量压缩",
+      "file": "context_summarize.md",
+      "params": ["previous_summary_json", "conversation_json"]
+    },
+    "context_summary": {
+      "description": "中短期记忆：把持久化会话摘要作为不可信历史记录注入主模型",
+      "file": "context_summary.md",
+      "params": ["summary_json"]
+    },
     "goal_turn": {
       "description": "目标驱动空闲策略开回合的指令文本（已分解 plan 时，设计 §8.2）",
       "file": "goal_turn.md",

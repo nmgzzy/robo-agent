@@ -22,7 +22,8 @@
 
 - **可恢复执行（Durable execution）** —— Agent 可穿越故障/断电：状态落盘 checkpoint，重启后按 `thread_id` 从中断处精确续跑。
 - **人在环（Human-in-the-loop）** —— 借助 `interrupt`，在执行任意环节暂停以检查/修改 Agent 状态，可用于安全/急停门控。
-- **完整记忆** —— 既有用于持续推理的短期工作记忆（checkpoint），也有跨会话持久的长期记忆（store）。
+- **分层记忆** —— checkpoint 保存最近原文并在高水位自动滚动摘要较老会话，store 保存
+  跨会话长期记忆；不会在正常路径上直接丢弃较老对话语义。
 - **可调试** —— `stream_mode` 逐步观察状态流转；本地 SQLite（`*.db`）可用 `sqlite3` CLI 离线审查；全程无云依赖。
 
 ## 安装
@@ -40,6 +41,19 @@ uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e 
 ```bash
 uv add langchain-anthropic   # 决策用 claude-opus-4-8；高频轻量任务用 claude-haiku-4-5
 ```
+
+会话滚动摘要限额可在仓库根 `.env` 配置：
+
+```dotenv
+CONTEXT_HIGH_WATERMARK_TOKENS=10000
+CONTEXT_RECENT_WINDOW_TOKENS=5000
+CONTEXT_MAX_SUMMARY_TOKENS=1000
+CONTEXT_HARD_LIMIT_TOKENS=50000
+CONTEXT_SUMMARY_BATCH_TOKENS=3000
+```
+
+必须满足 `最近窗口 + 最大摘要 < 触发水位 <= 故障硬上限`。代码显式传入
+`ContextPolicy(...)` 会覆盖环境默认值；传 `context_policy=None` 可关闭自动摘要。
 
 ## 库一览
 

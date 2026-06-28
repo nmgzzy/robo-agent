@@ -214,5 +214,6 @@ def test_collect_health_aggregates_metrics():
     report = collect_health(metacog=metacog, governance=governance, journal=journal)
     assert isinstance(report, HealthReport)
     assert report.loops == 2 and report.escalations == 1 and report.denials == 1
+    assert report.context_compactions == 0
     # 可导出为 dict 供远程巡检读取。
     assert report.to_dict()["loops"] == 2

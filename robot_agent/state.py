@@ -1,4 +1,4 @@
-"""State schema（设计 §5.1）：工作记忆 `messages` + 注入式只读世界状态。
+"""State schema（设计 §5.1）：工作记忆 `messages` + 滚动摘要 + 注入式只读世界状态。
 
 `messages`（`add_messages` 累积）= 短期工作记忆；`remaining_steps` 由 `create_react_agent`
 用于限制单回合步数（二者继承自 `AgentState`，保持与高层装配完全兼容）。
@@ -34,7 +34,13 @@ class Detection(TypedDict):
 
 
 class RobotState(AgentState):
-    """机器人 Agent 状态：在 `AgentState`（messages + remaining_steps）上叠加只读世界状态。"""
+    """机器人 Agent 状态：短期消息、会话摘要及只读世界状态。"""
+
+    # 中短期记忆：较老的完整消息在高水位时滚动压缩到摘要，随 checkpoint 持久化。
+    context_summary: NotRequired[str]
+    context_compaction_count: NotRequired[int]
+    context_archived_messages: NotRequired[int]
+    context_compaction_failures: NotRequired[int]
 
     pose: NotRequired[Pose | None]
     battery: NotRequired[float | None]  # 电量百分比 0–100

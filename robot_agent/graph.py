@@ -6,8 +6,8 @@
 - `tools`：机器人控制工具（§5.2）+ 记忆回写工具（§6.3）。
 - `checkpointer`：短期记忆（`AsyncSqliteSaver`，线程内可恢复，§6.1）。
 - `store`：长期记忆（`AsyncSqliteStore`，跨会话，§6.2）。
-- `pre_model_hook`：调 LLM 前注入长期记忆 + 裁剪历史（§6.3）。
-- `state_schema=RobotState`：messages + 只读世界状态（§5.1）。
+- `pre_model_hook`：调 LLM 前滚动压缩会话 + 注入长期记忆（§6.3）。
+- `state_schema=RobotState`：近期 messages + 会话摘要 + 只读世界状态（§5.1）。
 
 需要更强控制（自定义状态通道、显式安全门控节点）时可平滑下沉到 `StateGraph`（设计 §4.2），
 能力等价——P1 先用高层入口起步。
@@ -25,6 +25,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.store.base import BaseStore
 from robot_agent.hal import build_effectors
 from robot_agent.hal.interfaces import Actuator
+from robot_agent.context import DEFAULT_CONTEXT_POLICY, ContextPolicy
 from robot_agent.memory import (
     DEFAULT_RECALL_KINDS,
     build_memory_tools,
@@ -57,19 +58,24 @@ def build_robot_agent(
     governance: GovernancePolicy | None = None,
     vlm_model: BaseChatModel | None = None,
     vision_source: VisionSource | None = None,
+    context_model: BaseChatModel | None = None,
+    context_policy: ContextPolicy | None = DEFAULT_CONTEXT_POLICY,
     extra_tools: Sequence[Any] | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
 
     - `effectors` 缺省用 `build_effectors("mock")`（纯内存执行器，离线可跑、可断言 `.log`）。
     - `checkpointer` / `store` 由调用方按生命周期打开后传入（见 `tests/` 用 `async with`）。
-    - 装上 `pre_model_hook=inject_memory`：每次调 LLM 前注入长期记忆 + 裁剪历史。
+    - 装上 `pre_model_hook=inject_memory`：每次调 LLM 前管理会话水位并注入长期记忆。
     - `safety` 非 None 时开启危险动作 `interrupt` 门控（设计 §7，需同时配 `checkpointer`）。
       重试 / 超时 / 降级在「决策大脑」一侧用 `reliability.make_resilient(model)` 包装后传入。
     - `metacog` 非 None 时用元认知监控装饰 `pre_model_hook`（循环/预算检测，§8.5）；
       `on_breach="escalate"` 会 `interrupt` 上报，需同时配 `checkpointer`。
     - `vlm_model` 与 `vision_source` 必须同时配置才会挂载 `describe_image`；主模型仅传
       不透明帧引用，图片由 source 直接交给 VLM，不进入 Agent 消息与 checkpoint。
+    - 会话达到 `context_policy.high_watermark_tokens` 后，自动用 `context_model` 滚动摘要
+      较老消息；未单独配置时复用 `model`。传 `context_policy=None` 可关闭 LLM 滚动摘要
+      （仍保留 `hard_limit_tokens` 硬窗口兜底）。
 
     返回值是已编译的 `create_react_agent`，支持 `ainvoke`（设计 §4.3 时序）。
     """
@@ -104,7 +110,12 @@ def build_robot_agent(
     # 动态技能工具（P10）：由 build_skill_tools 生成后传入，运行时扩展能力。
     if extra_tools:
         tools += list(extra_tools)
-    pre_model_hook = make_inject_memory(robot_id, kinds=recall_kinds)
+    pre_model_hook = make_inject_memory(
+        robot_id,
+        kinds=recall_kinds,
+        summary_model=context_model if context_model is not None else model,
+        context_policy=context_policy,
+    )
     if vlm_model is not None:
         pre_model_hook = make_vision_trust_hook(pre_model_hook)
     # 元认知监控装饰在最外层：先做循环/预算检测，再委托记忆注入。
