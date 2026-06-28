@@ -34,6 +34,8 @@ _SAMPLE = {
     "plan": {"intent": "把东西搬过去"},
     "distill": {"episodes": "回合1：…"},
     "conflict": {"memories": "1: [键=a] v"},
+    "vision_describe": {"question": "图里有什么？"},
+    "vision_trust_policy": {},
 }
 
 

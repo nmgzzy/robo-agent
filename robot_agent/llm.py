@@ -19,6 +19,7 @@
 | `LLM_MODEL` | 默认模型名（两档未单独指定时共用） |
 | `LLM_MODEL_FAST` | `fast` 档位模型 |
 | `LLM_MODEL_SMART` | `smart` 档位模型 |
+| `LLM_MODEL_VISION` | `vision` 档位模型（内置 VLM，默认与 smart 同档多模态模型） |
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ ENV_BASE_URL = "LLM_BASE_URL"
 ENV_MODEL = "LLM_MODEL"
 ENV_MODEL_FAST = "LLM_MODEL_FAST"
 ENV_MODEL_SMART = "LLM_MODEL_SMART"
+ENV_MODEL_VISION = "LLM_MODEL_VISION"
 
 DEFAULT_PROVIDER: ProviderKind = "openai"
 
@@ -57,8 +59,8 @@ _OPENAI_PROVIDER_ALIASES = frozenset({"openai", "openai_compatible", "openai_com
 _ANTHROPIC_PROVIDER_ALIASES = frozenset({"anthropic", "claude"})
 
 _DEFAULT_MODELS: dict[ProviderKind, dict[str, str]] = {
-    "anthropic": dict(PROFILE_MODELS),
-    "openai": {"fast": "gpt-4o-mini", "smart": "gpt-4o"},
+    "anthropic": {**PROFILE_MODELS, "vision": "claude-sonnet-4-6"},
+    "openai": {"fast": "gpt-4o-mini", "smart": "gpt-4o", "vision": "gpt-4o"},
 }
 
 _CLIENT_PACKAGES: dict[ProviderKind, tuple[str, str]] = {
@@ -75,6 +77,7 @@ class LLMConfig:
     model: str | None = None
     model_fast: str | None = None
     model_smart: str | None = None
+    model_vision: str | None = None
     api_key: str | None = None
     base_url: str | None = None
 
@@ -114,6 +117,7 @@ def load_llm_config_from_env(*, provider: str | None = None) -> LLMConfig:
         model=os.getenv(ENV_MODEL) or None,
         model_fast=os.getenv(ENV_MODEL_FAST) or None,
         model_smart=os.getenv(ENV_MODEL_SMART) or None,
+        model_vision=os.getenv(ENV_MODEL_VISION) or None,
         api_key=api_key,
         base_url=base_url,
     )
@@ -128,12 +132,15 @@ def merge_llm_config(
     base_url: str | None = None,
 ) -> LLMConfig:
     """显式参数覆盖 `base` 中的同名字段。"""
-    resolved_provider = normalize_provider(provider) if provider is not None else base.provider
+    resolved_provider = (
+        normalize_provider(provider) if provider is not None else base.provider
+    )
     return LLMConfig(
         provider=resolved_provider,
         model=model if model is not None else base.model,
         model_fast=base.model_fast,
         model_smart=base.model_smart,
+        model_vision=base.model_vision,
         api_key=api_key if api_key is not None else base.api_key,
         base_url=base_url if base_url is not None else base.base_url,
     )
@@ -141,18 +148,21 @@ def merge_llm_config(
 
 def resolve_model_name(profile: str, config: LLMConfig) -> str:
     """按 profile 与配置解析最终模型 id。"""
-    if profile not in {"fast", "smart"}:
-        valid = sorted(PROFILE_MODELS) + [MOCK_PROFILE]
+    if profile not in {"fast", "smart", "vision"}:
+        valid = sorted({*PROFILE_MODELS, "vision"}) + [MOCK_PROFILE]
         raise ValueError(f"未知 profile={profile!r}，可选：{valid}")
 
     per_profile = {
         "fast": config.model_fast,
         "smart": config.model_smart,
+        "vision": config.model_vision,
     }[profile]
     if per_profile:
         return per_profile
     if config.model:
         return config.model
+    if profile == "vision" and config.model_smart:
+        return config.model_smart
     return _DEFAULT_MODELS[config.provider][profile]
 
 
@@ -247,7 +257,7 @@ def make_model(
     """构建一个 `ChatModel`。
 
     - `profile="mock"` 或传入 `responses`：返回脚本化 `MockChatModel`（离线 / 测试 / 回归）。
-    - `profile in {"fast", "smart"}`：按 provider 惰性构建远程客户端。
+    - `profile in {"fast", "smart", "vision"}`：按 provider 惰性构建远程客户端。
       连接参数来自显式参数（优先）或 `LLM_*` 环境变量；`overrides` 透传给客户端构造。
     """
     if profile == MOCK_PROFILE or responses is not None:

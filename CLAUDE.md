@@ -12,8 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # 安装：4 个本地库 editable 装入虚拟环境
 uv venv && source .venv/bin/activate
+uv pip install -r requirements-app.txt
 uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
-# 或：make install（遍历 libs/* 安装）
+# 或：make install（遍历 libs/* 安装 + requirements-app.txt）
 
 # 配置 LLM：复制模板并填写密钥/端点/模型
 cp .env.example .env
@@ -108,10 +109,15 @@ prebuilt   → langgraph
 - **`skills/`** (P10) — 技能库（技能即数据）：`Skill`（动作序列）+ `SkillStore`（持久化 + 检索）
   + `build_skill_tools`（动态装配为 `skill_<name>` 工具，可选过治理校验），经
   `build_robot_agent(..., extra_tools=...)` 运行时加载复用。
+- **`vision/`** — 内置 VLM：`make_model("vision")` 构建多模态模型；HAL / 插件通过
+  `VisionSource` 供图，主模型只传不透明 `image_ref`（原图不进消息/checkpoint）；
+  图片进入 VLM 前自动限制到 720p 并压缩过高质量编码；`describe_image` 经
+  `build_robot_agent(..., vlm_model=..., vision_source=...)` 挂载。
 - **`ops/`** (P10) — 运维可观测：`DecisionJournal`/`make_journal_hook`（决策日记，`replay`
   离线还原决策链）+ `introspect`（运行时自省）+ `HealthReport`/`collect_health`（健康度聚合导出）。
 - **`prompts/`** — 提示词集中管理（JSON 索引 + Markdown 正文）：全部 LLM 可见文案（身份锚点 /
-  记忆头部 / 开回合指令 / 元认知告警 + 目标分解 / 复盘蒸馏 / 记忆冲突消解）外置到
+  记忆头部 / 开回合指令 / 元认知告警 + 目标分解 / 复盘蒸馏 / 记忆冲突消解 /
+  视觉理解与信任边界）外置到
   `registry.json`（索引：`file`/`params`/identity 的 `default_data`）+ 各自 `<id>.md`（正文）。
   loader 启动即加载并缓存、占位符与 `params` 不一致即 fail-fast；只暴露 `render(id, **params)`
   与 `identity_default()`。设计见 `docs/superpowers/specs/2026-06-27-prompts-central-management-design.md`。

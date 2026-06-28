@@ -89,6 +89,9 @@ tests/                       # 根目录验收/回归测试
 5. **记忆 hook**（§6.3）：`pre_model_hook=inject_memory`（检索长期记忆 + 裁剪 messages）；事实回写（工具内或 post hook）。
 6. **装配**（§4.1）：`create_react_agent(model, tools, checkpointer=AsyncSqliteSaver, store=AsyncSqliteStore, pre_model_hook)`。
 7. **namespace 约定**（§6.2）：先落 `facts` / `episodic` / `prefs`。
+8. **内置 VLM**（§5.3.2）：通过 `VisionSource` 按不透明 `image_ref` 取帧；原图不进入
+   tool-call / checkpoint；严格校验大小、格式和 MIME，自动降采样到 720p，输出标记为
+   不可信感知数据。
 
 **交付物**：`graph.py` 可 `ainvoke` 的 Agent；Mock HAL；记忆 hook。
 
@@ -96,6 +99,7 @@ tests/                       # 根目录验收/回归测试
 - **AC-1**：给定指令，Agent 产出预期工具调用序列；`MockBase.log` 与期望一致。
 - **AC-7（回归雏形）**：给定脚本化观测，断言下发指令序列（落 `tests/`）。
 - 跨会话写入 `prefs` 后，新 `thread_id` 能检索注入（**AC-3** 雏形）。
+- VLM 工具调用只持有 `image_ref`，checkpoint 中不出现图片 base64；非法/超限图片被拒绝。
 
 ---
 

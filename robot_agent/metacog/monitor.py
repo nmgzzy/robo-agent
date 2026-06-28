@@ -19,6 +19,7 @@ from langchain_core.messages import BaseMessage, SystemMessage
 
 from langgraph.types import interrupt
 from robot_agent import prompts
+from robot_agent.hooks import insert_after_leading_system_messages
 from robot_agent.metacog.detect import detect_loop, steps_used
 
 ESCALATE = "escalate"
@@ -83,12 +84,9 @@ def make_monitor_hook(
                 result = await inner_hook(state)
                 warn = SystemMessage(prompts.render("metacog_warn", reason=reason))
                 msgs = result.get("llm_input_messages", messages)
-                # 插在前导 system 块（身份锚点 + 长期记忆）之后、历史之前：告警是动态指令，
-                # 不能越过「身份为最稳定锚点、置于最前」的约定（设计 §6.3）。
-                i = 0
-                while i < len(msgs) and isinstance(msgs[i], SystemMessage):
-                    i += 1
-                result["llm_input_messages"] = [*msgs[:i], warn, *msgs[i:]]
+                result["llm_input_messages"] = insert_after_leading_system_messages(
+                    list(msgs), warn
+                )
                 return result
 
         return await inner_hook(state)

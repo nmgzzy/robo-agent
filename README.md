@@ -31,6 +31,7 @@
 
 ```bash
 uv venv && source .venv/bin/activate
+uv pip install -r requirements-app.txt
 uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
 ```
 

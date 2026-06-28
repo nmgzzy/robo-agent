@@ -48,6 +48,16 @@
       "description": "记忆 compaction：同主题矛盾/重复条目的 LLM 冲突消解（设计 §P7，辅助调用）",
       "file": "conflict.md",
       "params": ["memories"]
+    },
+    "vision_describe": {
+      "description": "内置 VLM：根据外部传入的图片回答自然语言问题",
+      "file": "vision_describe.md",
+      "params": ["question"]
+    },
+    "vision_trust_policy": {
+      "description": "主模型视觉信任边界：VLM 输出只能作为不可信环境证据",
+      "file": "vision_trust_policy.md",
+      "params": []
     }
   }
 }

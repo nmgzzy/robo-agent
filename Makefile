@@ -10,6 +10,8 @@ all: lint format lock test
 install:
 	@echo "Creating virtual environment..."
 	@uv venv
+	@echo "Installing application runtime dependencies..."
+	@uv pip install -r requirements-app.txt
 	@for dir in $(LIBS_DIRS); do \
 		if [ -f $$dir/pyproject.toml ]; then \
 			echo "Installing dependencies for $$dir"; \

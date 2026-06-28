@@ -87,6 +87,7 @@ def test_load_llm_config_from_env(tmp_path):
                 "LLM_MODEL=qwen-plus",
                 "LLM_MODEL_FAST=qwen-turbo",
                 "LLM_MODEL_SMART=qwen-max",
+                "LLM_MODEL_VISION=qwen-vl-max",
             ]
         ),
         encoding="utf-8",
@@ -99,6 +100,7 @@ def test_load_llm_config_from_env(tmp_path):
             model="qwen-plus",
             model_fast="qwen-turbo",
             model_smart="qwen-max",
+            model_vision="qwen-vl-max",
             api_key="sk-test",
             base_url="http://localhost:8000/v1",
         )

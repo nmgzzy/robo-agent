@@ -35,6 +35,11 @@ from robot_agent.metacog import MetacogPolicy, make_monitor_hook
 from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
 from robot_agent.tools import build_robot_tools
+from robot_agent.vision import (
+    VisionSource,
+    build_vision_tools,
+    make_vision_trust_hook,
+)
 
 DEFAULT_ROBOT_ID = "robot-1"
 
@@ -50,6 +55,8 @@ def build_robot_agent(
     safety: SafetyPolicy | None = None,
     metacog: MetacogPolicy | None = None,
     governance: GovernancePolicy | None = None,
+    vlm_model: BaseChatModel | None = None,
+    vision_source: VisionSource | None = None,
     extra_tools: Sequence[Any] | None = None,
 ) -> Any:
     """装配并编译机器人 Agent（设计 §4.1）。
@@ -61,11 +68,16 @@ def build_robot_agent(
       重试 / 超时 / 降级在「决策大脑」一侧用 `reliability.make_resilient(model)` 包装后传入。
     - `metacog` 非 None 时用元认知监控装饰 `pre_model_hook`（循环/预算检测，§8.5）；
       `on_breach="escalate"` 会 `interrupt` 上报，需同时配 `checkpointer`。
+    - `vlm_model` 与 `vision_source` 必须同时配置才会挂载 `describe_image`；主模型仅传
+      不透明帧引用，图片由 source 直接交给 VLM，不进入 Agent 消息与 checkpoint。
 
     返回值是已编译的 `create_react_agent`，支持 `ainvoke`（设计 §4.3 时序）。
     """
     if effectors is None:
         effectors = build_effectors("mock")
+
+    if (vlm_model is None) != (vision_source is None):
+        raise ValueError("vlm_model 与 vision_source 必须同时配置或同时省略。")
 
     # interrupt 门控（safety / metacog-escalate）依赖 checkpointer 暂存暂停状态；
     # 缺失时不在装配期放过、留到动作触发才崩，而是 fail-fast 给出可操作报错（设计 §7）。
@@ -85,10 +97,16 @@ def build_robot_agent(
     # 否则它们一旦被调用会在 ToolNode 注入阶段直接抛错（无 store 可注入）。
     if store is not None:
         tools += build_memory_tools(robot_id, governance=governance)
+    if vlm_model is not None:
+        if vision_source is None:
+            raise ValueError("vlm_model 与 vision_source 必须同时配置或同时省略。")
+        tools += build_vision_tools(vlm_model, vision_source, governance=governance)
     # 动态技能工具（P10）：由 build_skill_tools 生成后传入，运行时扩展能力。
     if extra_tools:
         tools += list(extra_tools)
     pre_model_hook = make_inject_memory(robot_id, kinds=recall_kinds)
+    if vlm_model is not None:
+        pre_model_hook = make_vision_trust_hook(pre_model_hook)
     # 元认知监控装饰在最外层：先做循环/预算检测，再委托记忆注入。
     if metacog is not None:
         pre_model_hook = make_monitor_hook(pre_model_hook, metacog)

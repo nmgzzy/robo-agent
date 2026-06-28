@@ -25,6 +25,7 @@
     ├── governance/     # P7+P9：记忆 compaction + 安全对齐策略层（审计）
     ├── metacog/        # P8：元认知（循环/预算检测 + 上报）
     ├── skills/         # P10：技能库（数据化技能 + 动态工具加载）
+    ├── vision/         # 内置 VLM：外部供图 + describe_image 视觉理解
     └── ops/            # P10：运维可观测（决策日记 + 健康度指标）
 
 **依赖纪律**（对齐 `docs/SLIMMING_NOTES.md`）：硬件 SDK / ROS / OpenCV / 控制算法
@@ -94,6 +95,13 @@ from robot_agent.reliability import (
 from robot_agent.safety import SafetyPolicy
 from robot_agent.skills import Skill, SkillStore, build_skill_tools
 from robot_agent.state import RobotState
+from robot_agent.vision import (
+    MemoryVisionSource,
+    VisionFrame,
+    VisionSource,
+    analyze_image,
+    build_vision_tools,
+)
 
 ensure_env_loaded()
 
@@ -113,10 +121,13 @@ __all__ = [
     "HealthReport",
     "LLMConfig",
     "MetacogPolicy",
+    "MemoryVisionSource",
     "MockChatModel",
     "Skill",
     "SkillStore",
     "ToolPermission",
+    "VisionFrame",
+    "VisionSource",
     "PriorityInbox",
     "PromptIdlePolicy",
     "ResilientChatModel",
@@ -124,9 +135,11 @@ __all__ = [
     "SafetyPolicy",
     "StandbyPolicy",
     "arbitrate",
+    "analyze_image",
     "build_effectors",
     "build_robot_agent",
     "build_skill_tools",
+    "build_vision_tools",
     "cleanup_threads",
     "collect_health",
     "compact_all",
