@@ -41,6 +41,11 @@ _SAMPLE = {
     "conflict": {"memories": "1: [键=a] v"},
     "vision_describe": {"question": "图里有什么？"},
     "vision_trust_policy": {},
+    "live_probe_chat": {"marker": "CHAT-test"},
+    "live_probe_history_tool": {},
+    "live_probe_forced_tool": {},
+    "live_probe_memory_write": {"key": "operator", "value": "小林"},
+    "live_probe_memory_recall": {"key": "operator"},
 }
 
 

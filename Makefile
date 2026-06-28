@@ -64,3 +64,9 @@ lock-upgrade:
 .PHONY: test
 test:
 	uv run --active pytest tests/
+
+# Run the opt-in real-LLM compatibility probe (uses .env and may incur cost).
+# Example: make test-llm ARGS="--profile smart --checks chat,forced-tool"
+.PHONY: test-llm
+test-llm:
+	.venv/bin/python scripts/probe_live_llm.py $(ARGS)

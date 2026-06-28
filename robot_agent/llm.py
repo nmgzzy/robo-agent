@@ -131,16 +131,19 @@ def merge_llm_config(
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> LLMConfig:
-    """显式参数覆盖 `base` 中的同名字段。"""
+    """显式参数覆盖 `base`；`model` 同时覆盖 profile 专用模型。"""
     resolved_provider = (
         normalize_provider(provider) if provider is not None else base.provider
     )
+    # `make_model("fast", model="...")` 的显式 model 必须高于环境中的
+    # LLM_MODEL_FAST，否则命令行/调用方看似切换模型，实际仍会命中旧 profile 配置。
+    explicit_model = model is not None
     return LLMConfig(
         provider=resolved_provider,
         model=model if model is not None else base.model,
-        model_fast=base.model_fast,
-        model_smart=base.model_smart,
-        model_vision=base.model_vision,
+        model_fast=None if explicit_model else base.model_fast,
+        model_smart=None if explicit_model else base.model_smart,
+        model_vision=None if explicit_model else base.model_vision,
         api_key=api_key if api_key is not None else base.api_key,
         base_url=base_url if base_url is not None else base.base_url,
     )

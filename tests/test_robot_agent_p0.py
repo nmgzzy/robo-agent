@@ -189,6 +189,22 @@ def test_resolve_model_name_priority():
     assert resolve_model_name("fast", cfg_shared) == "shared"
 
 
+def test_explicit_model_overrides_profile_model():
+    from robot_agent.llm import LLMConfig, merge_llm_config, resolve_model_name
+
+    base = LLMConfig(
+        provider="openai",
+        model_fast="env-fast",
+        model_smart="env-smart",
+        model_vision="env-vision",
+    )
+    merged = merge_llm_config(base, model="explicit-model")
+
+    assert resolve_model_name("fast", merged) == "explicit-model"
+    assert resolve_model_name("smart", merged) == "explicit-model"
+    assert resolve_model_name("vision", merged) == "explicit-model"
+
+
 def test_make_model_real_profile_helpful_error_when_client_missing(monkeypatch):
     """真实档位且未装 langchain-openai 时，给出可操作的 ImportError。"""
     import builtins

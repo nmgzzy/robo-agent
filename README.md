@@ -243,6 +243,34 @@ make lint
 
 应用层测试位于 [`tests/`](tests/)，覆盖 P0–P10、上下文滚动摘要、视觉链路和裁剪不变量。
 
+### 真实 LLM 兼容性探针
+
+[`scripts/probe_live_llm.py`](scripts/probe_live_llm.py) 使用 `.env` 中的真实端点，检查普通对话、线程历史、
+自然/强制工具调用和跨线程长期记忆。它会产生实际 API 费用，因此不会被 `make test` 自动执行。
+
+```bash
+# 完整检查：预计约 6–8 次模型请求
+make test-llm
+
+# 快速筛选一个模型是否能对话并遵循 OpenAI tool_choice
+make test-llm ARGS="--profile fast --checks chat,forced-tool"
+
+# 临时覆盖模型，并保存便于横向比较的 JSON 报告
+make test-llm ARGS="--profile smart --model your-model --json-report /tmp/llm-report.json"
+```
+
+也可直接运行脚本。常用参数包括：
+
+- `--provider`、`--base-url`、`--model`：覆盖 `.env`，API key 仍只从环境读取，不出现在命令行或报告中；
+- `--checks chat,history,agent-tool,forced-tool,memory`：选择测试项，默认 `all`；
+- `--max-tokens 160`：限制每次模型调用的最大输出；
+- `--max-retries 0`：默认不自动重试，避免兼容性故障放大费用；
+- `--request-timeout 45`、`--case-timeout 120`：限制单次请求和整个用例的等待时间；
+- `--recursion-limit 6`：限制 Agent 图步数，防止异常工具循环；
+- `--work-dir <dir>`：保留测试 SQLite；默认写入 `/tmp` 并在结束后删除。
+
+脚本会打印每项 PASS/FAIL、工具调用、Mock 执行器日志及 provider 返回的 token usage；任一检查失败时退出码为 1。
+
 ## 文档
 
 | 文档 | 内容 |

@@ -21,3 +21,16 @@ python -m pytest tests/ -v
 
 依赖：`pytest`、`pytest-asyncio`（异步用例靠 `pytest.ini` 的 `asyncio_mode=auto` 自动驱动）。
 脚本化假模型 `FakeToolCallingModel` 见 `conftest.py`。
+
+## 真实 LLM 兼容性测试
+
+真实模型测试独立放在 `scripts/probe_live_llm.py`，不会被本目录的离线 pytest 自动收集。它读取根目录
+`.env`，会访问远程 API 并产生费用：
+
+```bash
+make test-llm
+make test-llm ARGS="--profile fast --checks chat,forced-tool"
+```
+
+探针覆盖普通对话、线程历史、自然/强制工具调用和跨线程长期记忆，并对输出 token、请求时间、
+客户端重试、单用例时间和图递归步数设置上限。完整参数见 `python scripts/probe_live_llm.py --help`。

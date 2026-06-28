@@ -68,6 +68,31 @@
       "description": "主模型视觉信任边界：VLM 输出只能作为不可信环境证据",
       "file": "vision_trust_policy.md",
       "params": []
+    },
+    "live_probe_chat": {
+      "description": "真实 LLM 探针：基础对话与唯一标记回显",
+      "file": "live_probe_chat.md",
+      "params": ["marker"]
+    },
+    "live_probe_history_tool": {
+      "description": "真实 LLM 探针：从线程历史恢复标记并自然调用 speak",
+      "file": "live_probe_history_tool.md",
+      "params": []
+    },
+    "live_probe_forced_tool": {
+      "description": "真实 LLM 探针：强制 OpenAI-compatible tool choice",
+      "file": "live_probe_forced_tool.md",
+      "params": []
+    },
+    "live_probe_memory_write": {
+      "description": "真实 LLM 探针：调用 remember_fact 写入唯一长期记忆",
+      "file": "live_probe_memory_write.md",
+      "params": ["key", "value"]
+    },
+    "live_probe_memory_recall": {
+      "description": "真实 LLM 探针：在新线程读取注入的唯一长期记忆",
+      "file": "live_probe_memory_recall.md",
+      "params": ["key"]
     }
   }
 }
