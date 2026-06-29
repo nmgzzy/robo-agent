@@ -46,6 +46,7 @@ _SAMPLE = {
     "live_probe_forced_tool": {},
     "live_probe_memory_write": {"key": "operator", "value": "小林"},
     "live_probe_memory_recall": {"key": "operator"},
+    "live_probe_vision": {},
 }
 
 

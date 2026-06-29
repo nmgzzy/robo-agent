@@ -271,6 +271,27 @@ make test-llm ARGS="--profile smart --model your-model --json-report /tmp/llm-re
 
 脚本会打印每项 PASS/FAIL、工具调用、Mock 执行器日志及 provider 返回的 token usage；任一检查失败时退出码为 1。
 
+### 真实 VLM 兼容性探针
+
+[`scripts/probe_live_vlm.py`](scripts/probe_live_vlm.py) 会在内存中生成固定测试图（白底、一个红圆和一个蓝圆），
+通过 `MemoryVisionSource → describe_image → VLM` 正式链路检查多模态输入、结构化不可信观察、
+不透明 `image_ref` 边界以及视觉识别准确性。默认仅发起一次模型请求。
+
+```bash
+# 使用 .env 的 LLM_MODEL_VISION
+make test-vlm
+
+# 临时切换视觉模型并保存横向比较报告
+make test-vlm ARGS="--model your-vision-model --json-report /tmp/vlm-report.json"
+
+# 同时保存实际提交的测试图，便于人工核对
+make test-vlm ARGS="--save-image /tmp/vlm-probe.png"
+```
+
+探针默认限制为 160 输出 tokens、零重试、45 秒请求超时和 60 秒用例超时。可通过
+`--max-tokens`、`--max-retries`、`--request-timeout`、`--case-timeout` 调整；API key 只从环境读取，
+不会写入日志或 JSON 报告。完整参数见 `python scripts/probe_live_vlm.py --help`。
+
 ## 文档
 
 | 文档 | 内容 |

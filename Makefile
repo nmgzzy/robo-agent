@@ -70,3 +70,9 @@ test:
 .PHONY: test-llm
 test-llm:
 	.venv/bin/python scripts/probe_live_llm.py $(ARGS)
+
+# Run the opt-in real-VLM compatibility probe (uses .env and may incur cost).
+# Example: make test-vlm ARGS="--model your-vision-model"
+.PHONY: test-vlm
+test-vlm:
+	.venv/bin/python scripts/probe_live_vlm.py $(ARGS)

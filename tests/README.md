@@ -34,3 +34,13 @@ make test-llm ARGS="--profile fast --checks chat,forced-tool"
 
 探针覆盖普通对话、线程历史、自然/强制工具调用和跨线程长期记忆，并对输出 token、请求时间、
 客户端重试、单用例时间和图递归步数设置上限。完整参数见 `python scripts/probe_live_llm.py --help`。
+
+真实视觉模型使用独立探针，同样不会被离线 pytest 自动收集：
+
+```bash
+make test-vlm
+make test-vlm ARGS="--model your-vision-model --json-report /tmp/vlm-report.json"
+```
+
+它生成固定测试图并走 `MemoryVisionSource → describe_image → VLM` 链路，校验视觉结果、信任标记和
+`image_ref` 边界。完整参数见 `python scripts/probe_live_vlm.py --help`。
