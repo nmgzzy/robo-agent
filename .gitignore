@@ -69,7 +69,7 @@ profile_default/
 ipython_config.py
 
 # pyenv
-.python-version
+# 注意：.python-version 是本项目的 uv 共享 Python pin（3.12.13），需入库，故不忽略。
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
