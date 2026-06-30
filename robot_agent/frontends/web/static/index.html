@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Robot Agent · 控制台</title>
+<style>
+  :root{
+    --bg:#080b10; --bg2:#0d1219; --panel:rgba(20,27,38,.72); --panel-2:rgba(28,37,52,.6);
+    --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.12);
+    --txt:#e7edf5; --muted:#8a97ab; --faint:#5d6b80;
+    --accent:#3ee0c4; --accent-2:#6aa6ff; --accent-3:#b98cff;
+    --danger:#ff6b81; --warn:#ffcf6b;
+    --radius:16px; --shadow:0 18px 50px -20px rgba(0,0,0,.7);
+    --grad:linear-gradient(135deg,var(--accent),var(--accent-2) 55%,var(--accent-3));
+    font-synthesis:none;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;color:var(--txt);background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14.5px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+  body::before{ /* 氛围光 */
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(900px 600px at 12% -10%,rgba(62,224,196,.10),transparent 60%),
+      radial-gradient(800px 700px at 110% 10%,rgba(106,166,255,.10),transparent 55%),
+      radial-gradient(700px 600px at 80% 120%,rgba(185,140,255,.08),transparent 60%),
+      var(--bg);
+  }
+  .app{display:grid;grid-template-columns:248px 1fr;height:100vh}
+  /* —— 侧栏 —— */
+  .rail{
+    display:flex;flex-direction:column;gap:6px;padding:22px 16px;
+    background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 40%);
+    border-right:1px solid var(--line);backdrop-filter:blur(8px);
+  }
+  .brand{display:flex;align-items:center;gap:12px;padding:6px 8px 22px}
+  .logo{
+    width:38px;height:38px;border-radius:11px;background:var(--grad);
+    display:grid;place-items:center;box-shadow:0 8px 22px -8px rgba(62,224,196,.6);
+    font-size:20px;
+  }
+  .brand h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+  .brand small{color:var(--muted);font-size:11.5px;letter-spacing:.4px}
+  .nav{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .nav button{
+    display:flex;align-items:center;gap:12px;width:100%;border:0;cursor:pointer;
+    padding:11px 13px;border-radius:12px;color:var(--muted);background:transparent;
+    font-size:14px;font-family:inherit;text-align:left;transition:.18s ease;
+  }
+  .nav button .ic{width:18px;text-align:center;opacity:.85;font-size:15px}
+  .nav button:hover{color:var(--txt);background:var(--panel-2)}
+  .nav button.on{color:#06131a;background:var(--grad);font-weight:650;box-shadow:0 10px 24px -12px rgba(62,224,196,.7)}
+  .nav button.on .ic{opacity:1}
+  .rail .spacer{flex:1}
+  .health{padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2);font-size:12px}
+  .health .row{display:flex;justify-content:space-between;color:var(--muted);padding:2px 0}
+  .health .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .health .ttl{display:flex;align-items:center;gap:7px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px;font-size:10px;margin-bottom:8px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(62,224,196,.5)}70%{box-shadow:0 0 0 7px rgba(62,224,196,0)}100%{box-shadow:0 0 0 0 rgba(62,224,196,0)}}
+  .dot.off{background:var(--danger);animation:none}
+  /* —— 主区 —— */
+  .main{display:flex;flex-direction:column;min-width:0;height:100vh}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:18px 26px;border-bottom:1px solid var(--line)}
+  .top .title{font-size:17px;font-weight:640;letter-spacing:.2px}
+  .top .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--line-2);border-radius:999px;font-size:12px;color:var(--muted)}
+  .view{flex:1;min-height:0;overflow:auto;padding:26px;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+  .view::-webkit-scrollbar{width:9px}.view::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+  .hidden{display:none!important}
+  .empty{color:var(--faint);text-align:center;padding:60px 20px;font-size:13.5px}
+  .empty .big{font-size:34px;margin-bottom:12px;opacity:.6}
+  /* —— 对话 —— */
+  #chatView{display:flex;flex-direction:column;height:100%;padding:0}
+  .stream{flex:1;overflow:auto;padding:26px 26px 8px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+  .stream::-webkit-scrollbar{width:9px}.stream::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+  .msg{display:flex;gap:12px;max-width:80%;animation:rise .35s cubic-bezier(.2,.7,.3,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .msg .av{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px}
+  .msg .bubble{padding:12px 15px;border-radius:14px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);white-space:pre-wrap;word-break:break-word}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse}
+  .msg.user .av{background:linear-gradient(135deg,#2a3344,#1b2230);color:var(--accent-2)}
+  .msg.user .bubble{background:linear-gradient(135deg,rgba(62,224,196,.16),rgba(106,166,255,.16));border-color:rgba(106,166,255,.28)}
+  .msg.ai .av{background:var(--grad);color:#06131a}
+  .msg.note{align-self:center;max-width:90%}
+  .msg.note .bubble{background:transparent;border-style:dashed;color:var(--muted);box-shadow:none;font-size:12.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .chip{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--accent);background:rgba(62,224,196,.10);border:1px solid rgba(62,224,196,.25);padding:3px 9px;border-radius:8px}
+  .chip::before{content:"⚙ ";opacity:.7}
+  .typing .bubble{display:flex;gap:5px;align-items:center}
+  .typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+  .composer{padding:16px 26px 22px;border-top:1px solid var(--line);background:linear-gradient(0deg,rgba(13,18,25,.6),transparent)}
+  .inputwrap{display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line-2);border-radius:16px;padding:8px 8px 8px 16px;transition:.2s;box-shadow:var(--shadow)}
+  .inputwrap:focus-within{border-color:rgba(62,224,196,.45);box-shadow:0 0 0 4px rgba(62,224,196,.08),var(--shadow)}
+  .inputwrap textarea{flex:1;border:0;outline:0;resize:none;background:transparent;color:var(--txt);font-family:inherit;font-size:14.5px;line-height:1.5;max-height:140px;padding:6px 0}
+  .send{flex:none;width:42px;height:42px;border:0;border-radius:12px;cursor:pointer;background:var(--grad);color:#06131a;font-size:18px;display:grid;place-items:center;transition:.18s}
+  .send:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .send:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .hint{color:var(--faint);font-size:11px;margin:9px 4px 0;text-align:center}
+  /* —— 卡片网格（工具/记忆/历史）—— */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .card{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:16px 17px;transition:.2s;box-shadow:var(--shadow)}
+  .card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  .card .cname{display:flex;align-items:center;gap:9px;font-weight:640;font-size:14.5px}
+  .card .cname .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:rgba(62,224,196,.12);color:var(--accent);font-size:14px}
+  .card .cdesc{color:var(--muted);font-size:12.8px;margin-top:9px}
+  .kv{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+  .kv .k{color:var(--accent-2)}.kv .v{color:var(--txt)}
+  .seg{margin-bottom:26px}
+  .seg h3{display:flex;align-items:center;gap:9px;font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--faint);margin:0 0 13px;font-weight:600}
+  .seg h3 .cnt{color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:11px;letter-spacing:0}
+  .hist{display:flex;flex-direction:column;gap:10px}
+  .hrow{display:flex;gap:12px;padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+  .hrow .tag{flex:none;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;padding:3px 9px;border-radius:7px;height:fit-content;font-weight:600}
+  .tag.human{background:rgba(106,166,255,.14);color:var(--accent-2)}
+  .tag.ai{background:rgba(62,224,196,.14);color:var(--accent)}
+  .tag.tool{background:rgba(185,140,255,.14);color:var(--accent-3)}
+  .tag.system,.tag.unknown{background:var(--panel-2);color:var(--muted)}
+  .hrow .body{min-width:0;white-space:pre-wrap;word-break:break-word;color:var(--txt);font-size:13.3px}
+  .refresh{cursor:pointer;border:1px solid var(--line-2);background:var(--panel);color:var(--muted);border-radius:10px;padding:7px 13px;font-size:12.5px;font-family:inherit;transition:.18s}
+  .refresh:hover{color:var(--txt);border-color:var(--accent)}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+  .toolbar .ttl{font-size:15px;font-weight:620}
+  @media(max-width:760px){.app{grid-template-columns:1fr}.rail{display:none}.msg{max-width:92%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 侧栏 -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="logo">◎</div>
+      <div><h1>Robot Agent</h1><small id="robotId">数字个体 · 控制台</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-tab="chat" class="on"><span class="ic">💬</span>对话</button>
+      <button data-tab="history"><span class="ic">🕮</span>历史</button>
+      <button data-tab="memory"><span class="ic">🧠</span>记忆</button>
+      <button data-tab="tools"><span class="ic">🛠</span>工具</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="health">
+      <div class="ttl"><span class="dot" id="liveDot"></span>运行状态</div>
+      <div class="row"><span>回合</span><b id="hTurns">—</b></div>
+      <div class="row"><span>升级上报</span><b id="hEsc">—</b></div>
+      <div class="row"><span>循环检测</span><b id="hLoops">—</b></div>
+      <div class="row"><span>拒绝</span><b id="hDenials">—</b></div>
+      <div class="row"><span>暂停线程</span><b id="hPending">—</b></div>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <main class="main">
+    <header class="top">
+      <div>
+        <div class="title" id="vTitle">对话</div>
+        <div class="sub" id="vSub">与常驻 Agent 实时交流</div>
+      </div>
+      <div class="pill"><span class="dot" id="connDot"></span><span id="connTxt">连接中…</span></div>
+    </header>
+
+    <!-- 对话 -->
+    <section id="chatView" class="view">
+      <div class="stream" id="stream">
+        <div class="msg ai"><div class="av">◎</div><div class="bubble">你好，我已就绪。给我下达指令，或问我在做什么。</div></div>
+      </div>
+      <div class="composer">
+        <div class="inputwrap">
+          <textarea id="input" rows="1" placeholder="对 Agent 说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="send" id="send" title="发送">➤</button>
+        </div>
+        <div class="hint">消息经收件箱投递给常驻 Driver · 回复经 SSE 增量推送</div>
+      </div>
+    </section>
+
+    <!-- 历史 -->
+    <section id="historyView" class="view hidden">
+      <div class="toolbar"><div class="ttl">会话历史 <span style="color:var(--faint);font-size:13px">· 线程 user_msg（短期记忆）</span></div><button class="refresh" data-r="history">↻ 刷新</button></div>
+      <div class="hist" id="histList"></div>
+    </section>
+
+    <!-- 记忆 -->
+    <section id="memoryView" class="view hidden">
+      <div class="toolbar"><div class="ttl">长期记忆</div><button class="refresh" data-r="memory">↻ 刷新</button></div>
+      <div id="memBody"></div>
+    </section>
+
+    <!-- 工具 -->
+    <section id="toolsView" class="view hidden">
+      <div class="toolbar"><div class="ttl">可调用工具</div><button class="refresh" data-r="tools">↻ 刷新</button></div>
+      <div class="grid" id="toolGrid"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const THREAD="user_msg";
+const TITLES={chat:["对话","与常驻 Agent 实时交流"],history:["历史","会话短期记忆回放"],memory:["记忆","跨会话长期记忆"],tools:["工具","Agent 当前可调用的能力"]};
+const KIND_META={facts:["事实","📌"],episodic:["情景","🎞"],prefs:["偏好","❤"]};
+let typingEl=null;
+
+/* —— Tab 切换 —— */
+function show(tab){
+  $$(".nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  ["chat","history","memory","tools"].forEach(t=>$("#"+t+"View").classList.toggle("hidden",t!==tab));
+  $("#vTitle").textContent=TITLES[tab][0]; $("#vSub").textContent=TITLES[tab][1];
+  if(tab==="history")loadHistory(); if(tab==="memory")loadMemory(); if(tab==="tools")loadTools();
+}
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(b.dataset.tab)});
+$$(".refresh").forEach(b=>b.addEventListener("click",()=>({history:loadHistory,memory:loadMemory,tools:loadTools})[b.dataset.r]()));
+
+/* —— 对话 —— */
+function bubble(role,text,tools){
+  const wrap=document.createElement("div");wrap.className="msg "+role;
+  const av=document.createElement("div");av.className="av";av.textContent=role==="user"?"你":"◎";
+  const b=document.createElement("div");b.className="bubble";b.textContent=text;
+  if(tools&&tools.length){const c=document.createElement("div");c.className="chips";
+    tools.forEach(t=>{const s=document.createElement("span");s.className="chip";s.textContent=t;c.appendChild(s)});b.appendChild(c);}
+  wrap.appendChild(av);wrap.appendChild(b);
+  $("#stream").appendChild(wrap);$("#stream").scrollTop=$("#stream").scrollHeight;return wrap;
+}
+function showTyping(){if(typingEl)return;typingEl=document.createElement("div");typingEl.className="msg ai typing";
+  typingEl.innerHTML='<div class="av">◎</div><div class="bubble"><i></i><i></i><i></i></div>';
+  $("#stream").appendChild(typingEl);$("#stream").scrollTop=$("#stream").scrollHeight;}
+function clearTyping(){if(typingEl){typingEl.remove();typingEl=null;}}
+
+async function sendMsg(){
+  const ta=$("#input");const text=ta.value.trim();if(!text)return;
+  ta.value="";ta.style.height="auto";bubble("user",text);showTyping();
+  try{await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,thread_id:THREAD})});}
+  catch(e){clearTyping();bubble("ai","⚠ 发送失败："+e);}
+}
+$("#send").addEventListener("click",sendMsg);
+$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}});
+$("#input").addEventListener("input",e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,140)+"px";});
+
+/* —— SSE 回合广播 —— */
+function connect(){
+  const es=new EventSource("/api/stream?thread_id="+encodeURIComponent(THREAD));
+  es.onopen=()=>{$("#connDot").classList.remove("off");$("#connTxt").textContent="已连接";$("#liveDot").classList.remove("off");};
+  es.onerror=()=>{$("#connDot").classList.add("off");$("#connTxt").textContent="重连中…";$("#liveDot").classList.add("off");};
+  es.onmessage=ev=>{let d;try{d=JSON.parse(ev.data)}catch{return}
+    if(d.type!=="turn")return;clearTyping();
+    const txt=d.reply||(d.tools&&d.tools.length?"（执行了工具）":"（无回复）");
+    const m=bubble("ai",txt,d.tools);
+    if(d.from_idle)m.querySelector(".bubble").insertAdjacentHTML("afterbegin",'<div style="color:var(--faint);font-size:11px;margin-bottom:4px">自发回合 · '+d.event_kind+'</div>');
+    if(d.interrupted)bubble("note","⏸ 该回合被安全门控暂停，等待确认 resume。");
+    loadHealth();
+  };
+}
+
+/* —— 历史 —— */
+async function loadHistory(){
+  const box=$("#histList");box.innerHTML='<div class="empty">加载中…</div>';
+  try{const r=await fetch("/api/history?thread_id="+encodeURIComponent(THREAD));const d=await r.json();
+    if(!d.length){box.innerHTML='<div class="empty"><div class="big">🕮</div>暂无历史，去对话页聊几句吧。</div>';return;}
+    box.innerHTML="";d.forEach(m=>{const row=document.createElement("div");row.className="hrow";
+      const role=m.role||"unknown";let body=m.content||"";
+      if((!body||!body.trim())&&m.tool_calls&&m.tool_calls.length)body="→ 调用工具："+m.tool_calls.join(", ");
+      row.innerHTML='<span class="tag '+role+'">'+role+'</span><div class="body"></div>';
+      row.querySelector(".body").textContent=body||"（空）";box.appendChild(row);});
+  }catch(e){box.innerHTML='<div class="empty">加载失败：'+e+'</div>';}
+}
+
+/* —— 记忆 —— */
+async function loadMemory(){
+  const box=$("#memBody");box.innerHTML='<div class="empty">加载中…</div>';
+  try{const r=await fetch("/api/memory");const d=await r.json();
+    let html="",total=0;
+    for(const kind of ["facts","episodic","prefs"]){const items=d[kind]||[];total+=items.length;
+      const[label,ic]=KIND_META[kind]||[kind,"•"];
+      html+='<div class="seg"><h3>'+ic+' '+label+' <span class="cnt">'+items.length+'</span></h3>';
+      if(!items.length){html+='<div class="empty" style="padding:18px;text-align:left">暂无</div>';}
+      else{html+='<div class="grid">';items.forEach(it=>{const v=typeof it.value==="object"?JSON.stringify(it.value):it.value;
+        html+='<div class="card"><div class="kv"><span class="k">'+esc(it.key)+'</span></div><div class="cdesc kv"><span class="v">'+esc(v)+'</span></div></div>';});html+='</div>';}
+      html+='</div>';}
+    box.innerHTML=total?html:'<div class="empty"><div class="big">🧠</div>记忆库还是空的。对话与复盘会逐步沉淀长期记忆。</div>';
+  }catch(e){box.innerHTML='<div class="empty">加载失败：'+e+'</div>';}
+}
+
+/* —— 工具 —— */
+async function loadTools(){
+  const box=$("#toolGrid");box.innerHTML='<div class="empty">加载中…</div>';
+  try{const r=await fetch("/api/tools");const d=await r.json();
+    if(!d.length){box.innerHTML='<div class="empty"><div class="big">🛠</div>未挂载工具。</div>';return;}
+    box.innerHTML="";d.forEach(t=>{const c=document.createElement("div");c.className="card";
+      const desc=(t.description||"").split("\n")[0];
+      c.innerHTML='<div class="cname"><span class="ic">⚙</span><span></span></div><div class="cdesc"></div>';
+      c.querySelector(".cname span:last-child").textContent=t.name;
+      c.querySelector(".cdesc").textContent=desc||"（无描述）";box.appendChild(c);});
+  }catch(e){box.innerHTML='<div class="empty">加载失败：'+e+'</div>';}
+}
+
+/* —— 健康度 —— */
+async function loadHealth(){
+  try{const r=await fetch("/api/health");const d=await r.json();
+    $("#hTurns").textContent=d.turns??0;$("#hEsc").textContent=d.escalations??0;
+    $("#hLoops").textContent=d.loops??0;$("#hDenials").textContent=d.denials??0;
+    $("#hPending").textContent=(d.pending_threads||[]).length;
+  }catch{}
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+connect();loadHealth();setInterval(loadHealth,8000);
+</script>
+</body>
+</html>

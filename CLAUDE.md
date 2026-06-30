@@ -133,6 +133,18 @@ prebuilt   → langgraph
   `registry.json`（索引：`file`/`params`/identity 的 `default_data`）+ 各自 `<id>.md`（正文）。
   loader 启动即加载并缓存、占位符与 `params` 不一致即 fail-fast；只暴露 `render(id, **params)`
   与 `identity_default()`。设计见 `docs/superpowers/specs/2026-06-27-prompts-central-management-design.md`。
+- **`frontends/`** — 前端通道层（**可拔插接口**）：把常驻 agent 接到外部世界的稳定边界。
+  天然分界线是 `Driver` 的 `submit(Event)`（输入）/ `on_turn(TurnResult)`（输出）——Web / IM /
+  麦克风扬声器都只是这条边界上不同的「通道」。`service.py` 的 `AgentService` 是**通道无关门面**：
+  `submit_user_text`/`resume`（输入）+ `subscribe`（把回合精简后**广播** fan-out 给所有订阅者）+
+  只读视图 `history`（复用 `graph.aget_state`）/ `memory`（复用 `store.asearch`）/ `tools` /
+  `health`（复用 `ops.collect_health`），核心闭环对通道一无所知。`channel.py` 的 `Channel`
+  Protocol 是通道契约（鸭子类型）；新增前端 = 实现 `start/stop`、输入走 `submit_user_text`、
+  输出 `subscribe`。`build_default_service` 一行装配离线可跑实例（默认 `_OfflineEchoModel`
+  兜底、内存存储、常驻 driver）。第一个通道是 **Web 控制台**（`frontends/web/`）：纯 **stdlib**
+  `http.server` + **SSE**，零第三方依赖（嵌入式友好）；同步 server 与 async 闭环间用
+  `run_coroutine_threadsafe` 桥接。入口 `python -m robot_agent.frontends.web`
+  （`--host/--port/--robot-id/--sqlite/--idle-prompt`），网页可对话/看历史/看记忆/看工具。
 
 ## 跨切面纪律（务必遵守）
 
