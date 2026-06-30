@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-
 from langgraph.store.base import BaseStore
+
 from robot_agent import prompts
 from robot_agent.memory import KIND_FACTS, KIND_PREFS, ns
 from robot_agent.reflect.episode import Episode, _content_to_text, read_episodes

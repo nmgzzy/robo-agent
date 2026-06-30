@@ -14,9 +14,9 @@ from langchain_core.messages import (
     SystemMessage,
     convert_to_openai_messages,
 )
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from PIL import Image
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from robot_agent import build_robot_agent, make_model
 from robot_agent.governance import GovernancePolicy
 from robot_agent.hal import build_effectors

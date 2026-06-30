@@ -19,9 +19,9 @@ import pytest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
-
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
+
 from robot_agent import (
     SafetyPolicy,
     build_effectors,
@@ -54,7 +54,7 @@ class FlakyChatModel(BaseChatModel):
     def _llm_type(self) -> str:
         return "flaky-chat"
 
-    def bind_tools(self, tools, **kwargs: Any) -> "FlakyChatModel":  # noqa: ANN001
+    def bind_tools(self, tools, **kwargs: Any) -> FlakyChatModel:  # noqa: ANN001
         return self
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:  # noqa: ANN001

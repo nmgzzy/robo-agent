@@ -50,9 +50,9 @@ def test_langgraph_does_not_require_sdk():
 def test_checkpoint_sqlite_declares_orjson():
     # store/sqlite 无条件 import orjson；依赖必须声明，否则干净安装会断（codex P1）。
     reqs = md.requires("langgraph-checkpoint-sqlite") or []
-    assert any(r.split()[0].split(">")[0].split("=")[0].strip() == "orjson" for r in reqs), (
-        f"checkpoint-sqlite 未声明 orjson 依赖: {reqs}"
-    )
+    assert any(
+        r.split()[0].split(">")[0].split("=")[0].strip() == "orjson" for r in reqs
+    ), f"checkpoint-sqlite 未声明 orjson 依赖: {reqs}"
 
 
 def test_remote_modules_removed():

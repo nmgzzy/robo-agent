@@ -36,7 +36,6 @@
 
 from __future__ import annotations
 
-from robot_agent.env import ensure_env_loaded, load_env
 from robot_agent.context import (
     DEFAULT_CONTEXT_POLICY,
     ContextPolicy,
@@ -50,6 +49,7 @@ from robot_agent.driver import (
     StandbyPolicy,
     user_message,
 )
+from robot_agent.env import ensure_env_loaded, load_env
 from robot_agent.goals import (
     Goal,
     GoalDrivenIdlePolicy,

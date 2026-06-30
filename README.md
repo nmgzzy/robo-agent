@@ -66,21 +66,28 @@ libs/                          裁剪后的 LangGraph 被动框架
 
 ### 1. 安装
 
-要求 Python 3.10+ 和 [uv](https://docs.astral.sh/uv/)。
+整个项目由 **uv workspace** 管理（根 `pyproject.toml` + 单一 `uv.lock`，4 个本地库与
+应用层 `robot_agent` 同处一个工作区）。
+
+**PC 开发（推荐，要求 Python 3.10+ 与 [uv](https://docs.astral.sh/uv/)）：**
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements-app.txt
-uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
+make install                # = uv sync：4 库 editable + robot_agent + 开发依赖
+make install-all            # 额外带上远程客户端 extra（openai + anthropic）
+source .venv/bin/activate   # uv 会创建/复用 .venv
 ```
 
-也可以使用：
+**嵌入式 Linux 运行**：uv 在 aarch64/armv7 有预编译二进制，可用则同上。若不便（特殊架构、
+只读系统等），退回系统 Python + 纯 pip，按拓扑序安装：
 
 ```bash
-make install
-source .venv/bin/activate
+# 在目标系统已激活的 venv 内：
+make install-pip            # 先按 checkpoint→sqlite→prebuilt→langgraph 序装本地库，再装应用层
+# 等价手动：pip install ./libs/checkpoint ./libs/checkpoint-sqlite ./libs/prebuilt ./libs/langgraph .
 ```
+
+> 纯 pip 路径必须**先装 4 个本地库再装应用层**——否则 `pip install .` 会从 PyPI 拉到
+> 上游同名包而非本仓库的裁剪版。
 
 ### 2. 离线跑通最小闭环
 
@@ -136,8 +143,9 @@ asyncio.run(main())
 
 ```bash
 cp .env.example .env
-uv pip install langchain-openai       # OpenAI 或 OpenAI-compatible
-# uv pip install langchain-anthropic  # Anthropic
+uv sync --extra openai       # OpenAI 或 OpenAI-compatible
+# uv sync --extra anthropic  # Anthropic
+# uv sync --extra all        # 两者都装
 ```
 
 在 `.env` 中至少配置 provider、API key 和模型名：
@@ -226,19 +234,15 @@ async with (
 
 ```bash
 make test
-TEST=tests/test_memory.py make test
-uv run --active pytest tests/test_robot_agent_p1.py -k recall
+TEST="tests/test_memory.py -k recall" make test
+uv run pytest tests/test_robot_agent_p1.py -k recall
 ```
 
-修改 `libs/<lib>` 后执行：
+改了任意代码、建 PR 前（整仓一次，不再逐库）：
 
 ```bash
-make -C libs/<lib> format
-make -C libs/<lib> lint
-
-# 或批量检查四个库
-make format
-make lint
+make format    # uv run ruff format . && ruff check --fix .
+make lint      # uv run ruff check .
 ```
 
 应用层测试位于 [`tests/`](tests/)，覆盖 P0–P10、上下文滚动摘要、视觉链路和裁剪不变量。

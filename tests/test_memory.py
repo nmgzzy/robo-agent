@@ -8,13 +8,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from typing_extensions import TypedDict
-
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.store.sqlite import SqliteStore
 from langgraph.store.sqlite.aio import AsyncSqliteStore
+from typing_extensions import TypedDict
 
 
 class _State(TypedDict):

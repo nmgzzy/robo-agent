@@ -22,8 +22,8 @@ from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-
 from langgraph.store.base import BaseStore
+
 from robot_agent import prompts
 from robot_agent.memory import KIND_EPISODIC, KIND_FACTS, KIND_PREFS, _unwrap_value, ns
 

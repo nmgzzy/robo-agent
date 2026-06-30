@@ -19,19 +19,19 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.prebuilt import create_react_agent
 from langgraph.store.base import BaseStore
+
+from robot_agent.context import DEFAULT_CONTEXT_POLICY, ContextPolicy
+from robot_agent.governance.policy import GovernancePolicy
 from robot_agent.hal import build_effectors
 from robot_agent.hal.interfaces import Actuator
-from robot_agent.context import DEFAULT_CONTEXT_POLICY, ContextPolicy
 from robot_agent.memory import (
     DEFAULT_RECALL_KINDS,
     build_memory_tools,
     make_inject_memory,
 )
-from robot_agent.governance.policy import GovernancePolicy
 from robot_agent.metacog import MetacogPolicy, make_monitor_hook
 from robot_agent.safety import SafetyPolicy
 from robot_agent.state import RobotState
@@ -104,8 +104,8 @@ def build_robot_agent(
     if store is not None:
         tools += build_memory_tools(robot_id, governance=governance)
     if vlm_model is not None:
-        if vision_source is None:
-            raise ValueError("vlm_model 与 vision_source 必须同时配置或同时省略。")
+        # 入口已 fail-fast 校验二者同时配置或同时省略；assert 记录该不变量并收窄类型。
+        assert vision_source is not None
         tools += build_vision_tools(vlm_model, vision_source, governance=governance)
     # 动态技能工具（P10）：由 build_skill_tools 生成后传入，运行时扩展能力。
     if extra_tools:
