@@ -49,7 +49,6 @@ packages = ["robot_agent"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
-extend-exclude = ["libs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]

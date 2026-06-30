@@ -27,9 +27,11 @@ make test                              # 根目录跑全部验收/回归（= uv 
 TEST="tests/test_memory.py -k recall" make test   # 只跑某文件/附加任意 pytest 参数
 uv run pytest tests/test_robot_agent_p1.py -k recall   # 直接 pytest 也可
 
-# 改了任意代码、建 PR 前（整仓一次，不再逐库）：
+# 改了任意代码、建 PR 前（整仓一次，ruff 覆盖含 libs/*，各目录就近读其 pyproject 配置）：
 make format    # uv run ruff format . && ruff check --fix .
 make lint      # uv run ruff check .
+# 改了 libs/<lib> 且要类型检查（ty）时，再单独跑该库的 lint（含 ruff + ty）：
+make -C libs/<lib> lint
 ```
 
 远程 LLM 客户端是按需 extra（`uv sync --extra openai` / `--extra anthropic` / `--extra all`），

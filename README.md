@@ -238,11 +238,13 @@ TEST="tests/test_memory.py -k recall" make test
 uv run pytest tests/test_robot_agent_p1.py -k recall
 ```
 
-改了任意代码、建 PR 前（整仓一次，不再逐库）：
+改了任意代码、建 PR 前（整仓一次，ruff 覆盖含 `libs/*`，各目录就近读其 pyproject 配置）：
 
 ```bash
 make format    # uv run ruff format . && ruff check --fix .
 make lint      # uv run ruff check .
+# 改了 libs/<lib> 且要类型检查（ty），再单独跑该库 lint（含 ruff + ty）：
+make -C libs/<lib> lint
 ```
 
 应用层测试位于 [`tests/`](tests/)，覆盖 P0–P10、上下文滚动摘要、视觉链路和裁剪不变量。
