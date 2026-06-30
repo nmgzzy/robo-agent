@@ -9,28 +9,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用命令
 
+整个项目由 **uv workspace** 管理：根 `pyproject.toml` 同时是 workspace 根与应用层
+`robot_agent` 的包定义，4 个本地库（`libs/*`）为 workspace 成员，共用单一 `uv.lock`。
+
 ```bash
-# 安装：4 个本地库 editable 装入虚拟环境
-uv venv && source .venv/bin/activate
-uv pip install -r requirements-app.txt
-uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
-# 或：make install（遍历 libs/* 安装 + requirements-app.txt）
+# 安装（PC 开发，uv 为主）：一键同步 4 库 editable + robot_agent + 开发依赖
+make install                # = uv sync
+make install-all            # 额外带上远程客户端 extra（openai + anthropic）
+
+# 嵌入式无 uv 回退：用系统 Python 的 pip 按拓扑序装本地库再装应用层
+make install-pip            # 在已激活的目标 venv 内执行（可选 EXTRAS=".[all]"）
 
 # 配置 LLM：复制模板并填写密钥/端点/模型
 cp .env.example .env
 
-make test                              # 根目录跑全部验收/回归（= pytest tests/）
-TEST=tests/test_memory.py make test    # 只跑某个文件；TEST 可附加任意 pytest 参数
-uv run --active pytest tests/test_robot_agent_p1.py -k recall   # 直接 pytest 也可
+make test                              # 根目录跑全部验收/回归（= uv run pytest tests/）
+TEST="tests/test_memory.py -k recall" make test   # 只跑某文件/附加任意 pytest 参数
+uv run pytest tests/test_robot_agent_p1.py -k recall   # 直接 pytest 也可
 
-# 改了任意库代码、建 PR 前，在该库目录下跑：
-make -C libs/<lib> format    # 代码格式化（ruff）
-make -C libs/<lib> lint      # 静态检查（ruff + mypy）
-make format && make lint     # 根目录：对所有库批量执行
+# 改了任意代码、建 PR 前（整仓一次，ruff 覆盖含 libs/*，各目录就近读其 pyproject 配置）：
+make format    # uv run ruff format . && ruff check --fix .
+make lint      # uv run ruff check .
+# 改了 libs/<lib> 且要类型检查（ty）时，再单独跑该库的 lint（含 ruff + ty）：
+make -C libs/<lib> lint
 ```
 
-测试全部**离线**运行（内存 / 临时 SQLite，无远程 LLM、无外部服务）。`pytest.ini` 已配
-`pythonpath=.`（应用层 `robot_agent/` 免打包直接 import）与 `asyncio_mode=auto`。
+远程 LLM 客户端是按需 extra（`uv sync --extra openai` / `--extra anthropic` / `--extra all`），
+保持惰性 import、核心精简。测试全部**离线**运行（内存 / 临时 SQLite，无远程 LLM、无外部
+服务）。`pytest.ini` 已配 `pythonpath=.` 与 `asyncio_mode=auto`。uv workspace 迁移设计见
+`docs/superpowers/specs/2026-06-30-uv-workspace-migration-design.md`。
 
 ## 两层结构：底座库 vs 应用层
 

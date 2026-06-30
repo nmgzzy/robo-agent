@@ -12,8 +12,8 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
-
 from langgraph.store.base import BaseStore
+
 from robot_agent.reflect.distill import reflect_and_distill
 from robot_agent.reflect.episode import episode_from_turn, record_episode
 

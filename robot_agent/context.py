@@ -22,8 +22,8 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.messages.utils import count_tokens_approximately, trim_messages
-
 from langgraph.graph.message import REMOVE_ALL_MESSAGES
+
 from robot_agent import prompts
 from robot_agent.env import ensure_env_loaded
 
@@ -152,16 +152,12 @@ def _summary_injection_overhead_tokens() -> int:
     return _message_tokens([_summary_message("")])
 
 
-def _inject_summary(
-    messages: list[BaseMessage], summary: str
-) -> list[BaseMessage]:
+def _inject_summary(messages: list[BaseMessage], summary: str) -> list[BaseMessage]:
     """把摘要放在稳定的前导 system 指令之后、普通历史之前。"""
     if not summary:
         return messages
     insert_at = 0
-    while insert_at < len(messages) and isinstance(
-        messages[insert_at], SystemMessage
-    ):
+    while insert_at < len(messages) and isinstance(messages[insert_at], SystemMessage):
         insert_at += 1
     return [
         *messages[:insert_at],
@@ -232,9 +228,7 @@ def _atomic_groups(messages: list[BaseMessage]) -> list[list[BaseMessage]]:
             call_ids = {call["id"] for call in message.tool_calls}
             group = [message]
             index += 1
-            while index < len(messages) and isinstance(
-                messages[index], ToolMessage
-            ):
+            while index < len(messages) and isinstance(messages[index], ToolMessage):
                 tool_message = messages[index]
                 if tool_message.tool_call_id not in call_ids:
                     break
@@ -333,7 +327,9 @@ def _parse_summary(response: BaseMessage, policy: ContextPolicy) -> str:
         raise ValueError(f"摘要模型输出缺少 {SUMMARY_MARKER} 标记或摘要正文为空。")
     summary = summary.strip()
     if _message_tokens([_summary_message(summary)]) > policy.max_summary_tokens:
-        raise ValueError("摘要模型输出超过 max_summary_tokens，拒绝用超长摘要替换历史。")
+        raise ValueError(
+            "摘要模型输出超过 max_summary_tokens，拒绝用超长摘要替换历史。"
+        )
     return summary
 
 
@@ -344,9 +340,7 @@ async def _roll_summary(
     policy: ContextPolicy,
 ) -> str:
     summary = previous_summary
-    output_budget = (
-        policy.max_summary_tokens - _summary_injection_overhead_tokens()
-    )
+    output_budget = policy.max_summary_tokens - _summary_injection_overhead_tokens()
     if output_budget <= 0:
         raise ValueError(
             "max_summary_tokens 不足以容纳会话摘要注入模板，请提高该限额。"
@@ -401,8 +395,7 @@ def trim_llm_input_messages(
     if preserve_prefix > len(messages):
         raise ValueError("preserve_prefix 不能大于消息数量。")
     if any(
-        not isinstance(message, SystemMessage)
-        for message in messages[:preserve_prefix]
+        not isinstance(message, SystemMessage) for message in messages[:preserve_prefix]
     ):
         raise ValueError("preserve_prefix 范围内只能包含前导 SystemMessage。")
 
@@ -488,9 +481,7 @@ async def prepare_context(
             if policy is not None
             else DEFAULT_CONTEXT_POLICY.hard_limit_tokens
         )
-        return PreparedContext(
-            _hard_window(messages, previous_summary, hard_limit), {}
-        )
+        return PreparedContext(_hard_window(messages, previous_summary, hard_limit), {})
 
     current = _inject_summary(messages, previous_summary)
     effective_watermark = max(1, policy.high_watermark_tokens - reserved_tokens)
@@ -532,9 +523,7 @@ async def prepare_context(
 
     prepared = _inject_summary(recent_messages, summary)
     if _message_tokens(prepared) > policy.hard_limit_tokens:
-        prepared = _hard_window(
-            recent_messages, summary, policy.hard_limit_tokens
-        )
+        prepared = _hard_window(recent_messages, summary, policy.hard_limit_tokens)
 
     state_update = {
         "messages": [
@@ -542,8 +531,7 @@ async def prepare_context(
             *recent_messages,
         ],
         "context_summary": summary,
-        "context_compaction_count": int(state.get("context_compaction_count") or 0)
-        + 1,
+        "context_compaction_count": int(state.get("context_compaction_count") or 0) + 1,
         "context_archived_messages": int(state.get("context_archived_messages") or 0)
         + len(old_messages),
     }

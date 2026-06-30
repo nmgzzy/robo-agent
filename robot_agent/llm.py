@@ -211,7 +211,7 @@ class MockChatModel(BaseChatModel):
     def _llm_type(self) -> str:
         return "mock-chat"
 
-    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "MockChatModel":
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> MockChatModel:
         return self
 
 

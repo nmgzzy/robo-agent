@@ -59,7 +59,9 @@ def collect_health(
     else:
         values = getattr(agent_state, "values", None)
         if not isinstance(values, Mapping):
-            raise TypeError("agent_state 必须是状态 Mapping 或带 Mapping `.values` 的状态快照。")
+            raise TypeError(
+                "agent_state 必须是状态 Mapping 或带 Mapping `.values` 的状态快照。"
+            )
         state = values
     return HealthReport(
         turns=turns,

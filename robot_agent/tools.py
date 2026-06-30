@@ -17,8 +17,8 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from langchain_core.tools import tool
-
 from langgraph.prebuilt import InjectedState
+
 from robot_agent.governance.policy import GovernancePolicy
 from robot_agent.hal.interfaces import Actuator
 from robot_agent.safety import SafetyPolicy, confirm_or_block

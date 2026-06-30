@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "robot-agent"
+version = "0.1.0"
+description = "嵌入式机器人 Agent 底座（裁剪自 LangGraph）的应用层与 workspace 根。"
+requires-python = ">=3.10"
+readme = "README.md"
+# 4 库经 [tool.uv.sources] 指向 workspace；故意不加版本约束，
+# 便于纯 pip 回退路径用已按拓扑序预装的本地库满足依赖（见 docs/superpowers/specs）。
+dependencies = [
+    "langgraph",
+    "langgraph-checkpoint",
+    "langgraph-checkpoint-sqlite",
+    "langgraph-prebuilt",
+    "pillow>=11,<13",
+]
+
+[project.optional-dependencies]
+# 远程 LLM 客户端保持惰性 import，仅在请求真实档位时按需安装。
+openai = ["langchain-openai>=1,<2"]
+anthropic = ["langchain-anthropic>=1,<2"]
+all = ["robot-agent[openai,anthropic]"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.workspace]
+members = ["libs/*"]
+
+[tool.uv.sources]
+langgraph = { workspace = true }
+langgraph-checkpoint = { workspace = true }
+langgraph-checkpoint-sqlite = { workspace = true }
+langgraph-prebuilt = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["robot_agent"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]

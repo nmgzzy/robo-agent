@@ -70,9 +70,9 @@ LLM 网络访问由用户另装的聊天模型客户端（如 `langchain-anthrop
 ## 五、安装与验证
 
 ```bash
-# 干净环境安装（editable，本地优先）
-uv venv && source .venv/bin/activate
-uv pip install -e libs/checkpoint -e libs/checkpoint-sqlite -e libs/prebuilt -e libs/langgraph
+# 干净环境安装：整个项目已是 uv workspace，一键同步即可（4 库 editable + 应用层）
+make install            # = uv sync
+# 嵌入式无 uv 时按拓扑序裸 pip：make install-pip（见 README「安装」节）
 
 # 冒烟
 python -c "from langgraph.graph import StateGraph; from langgraph.prebuilt import create_react_agent, ToolNode; from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver; from langgraph.store.sqlite.aio import AsyncSqliteStore; print('OK')"

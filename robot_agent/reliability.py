@@ -23,9 +23,8 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
-from pydantic import Field
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from pydantic import Field
 
 # 远程 LLM 客户端（如 ChatAnthropic）抛的瞬态异常**不是** ConnectionError/TimeoutError 的子类，
 # 而是 APIConnectionError / APITimeoutError / RateLimitError / OverloadedError 等。瘦身纪律下
@@ -82,7 +81,7 @@ class ResilientChatModel(BaseChatModel):
     def _llm_type(self) -> str:
         return "resilient-chat"
 
-    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "ResilientChatModel":
+    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> ResilientChatModel:
         # 把工具绑定下放给被包模型；浅拷贝共享 calls 记录，外层仍可断言内部重试行为。
         return self.model_copy(update={"inner": self.inner.bind_tools(tools, **kwargs)})
 

@@ -16,8 +16,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from langchain_core.messages import BaseMessage, SystemMessage
-
 from langgraph.types import interrupt
+
 from robot_agent import prompts
 from robot_agent.hooks import insert_after_leading_system_messages
 from robot_agent.metacog.detect import detect_loop, steps_used

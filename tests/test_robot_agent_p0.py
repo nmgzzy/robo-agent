@@ -268,7 +268,7 @@ def test_make_model_anthropic_builds_client_when_present(monkeypatch):
     import types
 
     from robot_agent import make_model
-    from robot_agent.llm import LLMConfig, PROFILE_MODELS
+    from robot_agent.llm import PROFILE_MODELS, LLMConfig
 
     captured: dict = {}
 

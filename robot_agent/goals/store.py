@@ -11,6 +11,7 @@ import time
 from collections.abc import Sequence
 
 from langgraph.store.base import BaseStore
+
 from robot_agent.goals.models import KIND_GOALS, Goal
 
 # asearch 默认 limit=10；分页拉满，避免目标数 >10 时漏选最高优先目标。

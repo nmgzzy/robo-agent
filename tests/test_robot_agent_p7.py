@@ -15,8 +15,8 @@ from __future__ import annotations
 from datetime import timedelta
 
 from langchain_core.messages import AIMessage
-
 from langgraph.store.sqlite.aio import AsyncSqliteStore
+
 from robot_agent import (
     CompactionReport,
     compact_all,

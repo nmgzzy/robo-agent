@@ -17,6 +17,7 @@ from langchain_core.messages.utils import count_tokens_approximately
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.store.memory import InMemoryStore
+
 from robot_agent import (
     ContextPolicy,
     RobotState,
@@ -25,7 +26,7 @@ from robot_agent import (
 )
 from robot_agent.context import SUMMARY_MARKER, prepare_context, trim_llm_input_messages
 from robot_agent.identity import ensure_default_identity
-from robot_agent.memory import make_inject_memory, ns, KIND_FACTS
+from robot_agent.memory import KIND_FACTS, make_inject_memory, ns
 from robot_agent.ops.health import collect_health
 
 
@@ -97,9 +98,7 @@ def test_context_policy_loads_all_limits_from_environment(monkeypatch):
         ("CONTEXT_HARD_LIMIT_TOKENS", "0"),
     ],
 )
-def test_context_policy_rejects_invalid_environment_value(
-    monkeypatch, name, value
-):
+def test_context_policy_rejects_invalid_environment_value(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
     with pytest.raises(ValueError, match=name):
         load_context_policy_from_env()
@@ -155,9 +154,7 @@ async def test_high_watermark_archives_old_turn_and_keeps_current_tool_pair():
         HumanMessage("现在检查门口"),
         AIMessage(
             content="",
-            tool_calls=[
-                {"name": "get_world_state", "args": {}, "id": "call-current"}
-            ],
+            tool_calls=[{"name": "get_world_state", "args": {}, "id": "call-current"}],
         ),
         ToolMessage(content='{"door":"closed"}', tool_call_id="call-current"),
     ]
@@ -175,7 +172,10 @@ async def test_high_watermark_archives_old_turn_and_keeps_current_tool_pair():
     assert update["context_compaction_count"] == 1
     assert update["context_archived_messages"] == 2
     assert "会话摘要" in result.messages[0].content
-    assert summary_model.received and "很早的巡视要求" in summary_model.received[0][0].content
+    assert (
+        summary_model.received
+        and "很早的巡视要求" in summary_model.received[0][0].content
+    )
 
 
 async def test_rolling_summary_uses_previous_summary_and_updates_counters():
@@ -191,9 +191,7 @@ async def test_rolling_summary_uses_previous_summary_and_updates_counters():
         "context_archived_messages": 7,
     }
 
-    result = await prepare_context(
-        state, summary_model=summary_model, policy=_policy()
-    )
+    result = await prepare_context(state, summary_model=summary_model, policy=_policy())
 
     prompt = summary_model.received[0][0].content
     assert "第一版摘要" in prompt
@@ -211,9 +209,7 @@ async def test_bad_summary_falls_back_without_overwriting_checkpoint_state():
     ]
     state = {"messages": original}
 
-    result = await prepare_context(
-        state, summary_model=summary_model, policy=_policy()
-    )
+    result = await prepare_context(state, summary_model=summary_model, policy=_policy())
 
     assert result.state_update == {"context_compaction_failures": 1}
     assert "messages" not in result.state_update
@@ -281,7 +277,9 @@ async def test_context_summary_and_compacted_messages_persist_in_checkpoint():
 
     assert snapshot.values["context_summary"] == "旧回合要求记录温度。"
     assert snapshot.values["context_compaction_count"] == 1
-    assert all(old_text not in str(message.content) for message in snapshot.values["messages"])
+    assert all(
+        old_text not in str(message.content) for message in snapshot.values["messages"]
+    )
     assert snapshot.values["messages"][-1].content == "继续"
 
 

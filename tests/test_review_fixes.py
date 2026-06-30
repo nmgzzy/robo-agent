@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
 from langgraph.store.sqlite.aio import AsyncSqliteStore
+
 from robot_agent import (
     GovernancePolicy,
     MetacogPolicy,
@@ -19,8 +19,8 @@ from robot_agent import (
     detect_loop,
     make_model,
 )
-from robot_agent.metacog import make_monitor_hook
 from robot_agent.memory import KIND_FACTS, ns
+from robot_agent.metacog import make_monitor_hook
 
 
 def _mv(i: int, x: float = 1.0, y: float = 1.0) -> AIMessage:

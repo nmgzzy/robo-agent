@@ -11,8 +11,6 @@ from typing import Annotated
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
-from typing_extensions import TypedDict
-
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
@@ -26,6 +24,7 @@ from langgraph.prebuilt import (
 from langgraph.store.base import BaseStore
 from langgraph.store.memory import InMemoryStore
 from langgraph.types import Command, interrupt
+from typing_extensions import TypedDict
 
 
 class _ChatState(TypedDict):
@@ -78,6 +77,7 @@ def test_manual_think_tools_loop():
 
 async def test_manual_loop_resume_after_restart(tmp_path):
     """带 checkpointer 的主循环跑完后，新连接（重启）仍能取回完整对话历史。"""
+
     @tool
     def ping() -> str:
         """占位动作。"""
@@ -153,11 +153,11 @@ async def test_create_react_agent_with_memory(tmp_path, make_model):
     cfg = {"configurable": {"thread_id": "react-1"}}
     db = str(tmp_path / "react.db")
 
-    async with AsyncSqliteSaver.from_conn_string(db) as saver, \
-            AsyncSqliteStore.from_conn_string(":memory:") as store:
-        agent = create_react_agent(
-            model, tools=[noop], checkpointer=saver, store=store
-        )
+    async with (
+        AsyncSqliteSaver.from_conn_string(db) as saver,
+        AsyncSqliteStore.from_conn_string(":memory:") as store,
+    ):
+        agent = create_react_agent(model, tools=[noop], checkpointer=saver, store=store)
         out = await agent.ainvoke({"messages": [HumanMessage("hi")]}, cfg)
         assert out["messages"][-1].content == "直接回答"
         snap = await agent.aget_state(cfg)
@@ -173,6 +173,7 @@ def test_interrupt_and_resume():
 
     对应 docs/ROBOT_AGENT_DESIGN.md §6 可靠性（人工/规则确认 + 可恢复执行）。
     """
+
     def gate(state: _GateState):
         decision = interrupt({"ask": "确认执行危险动作?"})
         return {"val": f"resumed:{decision}"}

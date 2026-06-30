@@ -73,6 +73,9 @@ async def analyze_image(
     msg = build_vision_message(question=question, image=image, media_type=media_type)
     out = await model.ainvoke([msg])
     text = _content_to_text(out.content).strip()
+    # 仅当 VLM 被 make_resilient 包装、重试耗尽时才会原样返回 DEFAULT_FALLBACK_TEXT；
+    # 比较导入同一常量（其文案改动不破坏此链接），把保守兜底转成视觉语义的提示。
+    # VLM 正常输出恰好等于该串的概率可忽略。
     if text == DEFAULT_FALLBACK_TEXT:
         return "视觉理解暂时不可用（模型重试耗尽），请稍后再试或改用语义更低的任务。"
     if not text:

@@ -10,9 +10,8 @@
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
-
 from langgraph.prebuilt.chat_agent_executor import AgentState
+from typing_extensions import NotRequired, TypedDict
 
 
 class Pose(TypedDict):

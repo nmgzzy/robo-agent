@@ -15,9 +15,9 @@ import json
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.store.sqlite.aio import AsyncSqliteStore
+
 from robot_agent import build_effectors, build_robot_agent, make_model
 from robot_agent.hal import (
     MockActuator,
